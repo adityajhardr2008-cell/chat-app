@@ -44,10 +44,21 @@
     });
 
     // When the server broadcasts a message, show it
-    socket.on('chat message', (data) => {
+    function addMessage(data) {
       const li = document.createElement('li');
-      li.textContent = `${data.name}: ${data.text}`; // textContent = safe from HTML injection
+      li.textContent = `${data.name}: ${data.text}`;
       messages.appendChild(li);
+    }
+
+    // Saved messages sent when we first connect
+    socket.on('history', (rows) => {
+      rows.forEach(addMessage);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    // Live new messages
+    socket.on('chat message', (data) => {
+      addMessage(data);
       messages.scrollTop = messages.scrollHeight;
     });
   </script>

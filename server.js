@@ -1,21 +1,32 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const db = require('./db');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve everything in the "public" folder to browsers
 app.use(express.static('public'));
 
-// Runs every time a user opens the page and connects
+// Prepared statements: SQL we write once and reuse
+const insertMessage = db.prepare('INSERT INTO messages (name, text) VALUES (?, ?)');
+const getMessage = db.prepare('SELECT * FROM messages WHERE id = ?');
+const getRecentMessages = db.prepare(
+  'SELECT * FROM (SELECT * FROM messages ORDER BY id DESC LIMIT 50) ORDER BY id ASC'
+);
+
 io.on('connection', (socket) => {
   console.log('A user connected');
 
-  // Runs when THIS user sends a message
+  // 1. Send the last 50 saved messages to the user who just connected
+  socket.emit('history', getRecentMessages.all());
+
+  // 2. When a message arrives: save it, then broadcast it
   socket.on('chat message', (data) => {
-    io.emit('chat message', data); // send to EVERYONE
+    const result = insertMessage.run(data.name, data.text);
+    const saved = getMessage.get(result.lastInsertRowid);
+    io.emit('chat message', saved);
   });
 
   socket.on('disconnect', () => {
