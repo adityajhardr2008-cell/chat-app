@@ -3,56 +3,83 @@
 <head>
   <title>Chat</title>
   <style>
-    body { font-family: sans-serif; max-width: 500px; margin: 20px auto; }
-    #top { display: flex; justify-content: space-between; align-items: center; }
-    #messages { list-style: none; padding: 0; height: 350px; overflow-y: auto;
-                border: 1px solid #ccc; margin-bottom: 10px; }
-    #messages li { padding: 6px 10px; }
-    #messages li:nth-child(odd) { background: #f4f4f4; }
-    input { padding: 8px; }
-    #msg { width: 70%; }
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 0; height: 100vh; }
+    #app { display: flex; height: 100vh; }
+
+    #sidebar { width: 280px; border-right: 1px solid #ccc; padding: 10px;
+               display: flex; flex-direction: column; overflow-y: auto; }
+    #meBar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    #search { padding: 8px; width: 100%; }
+    #sidebar ul { list-style: none; padding: 0; margin: 5px 0; }
+    #sidebar li { padding: 10px; cursor: pointer; border-radius: 6px;
+                  display: flex; justify-content: space-between; }
+    #sidebar li:hover { background: #eee; }
+    #sidebar li.active { background: #dbeafe; }
+    #results li { background: #fffbe6; }
+    .badge { background: #e11d48; color: white; border-radius: 10px;
+             padding: 0 7px; font-size: 12px; }
+    h4 { margin: 15px 0 5px; color: #666; }
+
+    #main { flex: 1; display: flex; flex-direction: column; padding: 10px; }
+    #chatTitle { font-weight: bold; padding: 10px; border-bottom: 1px solid #ccc; }
+    #messages { flex: 1; list-style: none; padding: 10px; margin: 0; overflow-y: auto; }
+    #messages li { margin-bottom: 8px; padding: 8px 12px; border-radius: 10px;
+                   max-width: 70%; background: #f1f1f1; clear: both; }
+    #messages li.mine { background: #dcf8c6; margin-left: auto; }
+    #messages .sender { font-size: 12px; color: #666; }
+    #inputBar { display: flex; gap: 6px; }
+    #msg { flex: 1; padding: 10px; }
+    #send { padding: 10px 16px; }
   </style>
 </head>
 <body>
-  <div id="top">
-    <h2>Chat Room</h2>
-    <div>
-      <span id="who"></span>
-      <button id="logout">Logout</button>
+  <div id="app">
+    <div id="sidebar">
+      <div id="meBar">
+        <span id="who"></span>
+        <button id="logout">Logout</button>
+      </div>
+
+      <input id="search" placeholder="Search users..." autocomplete="off" />
+      <ul id="results"></ul>
+
+      <h4>Chats</h4>
+      <ul id="convList"></ul>
+    </div>
+
+    <div id="main">
+      <div id="chatTitle">Select a chat or search for a user</div>
+      <ul id="messages"></ul>
+      <div id="inputBar">
+        <input id="msg" placeholder="Type a message..." autocomplete="off" disabled />
+        <button id="send" disabled>Send</button>
+      </div>
     </div>
   </div>
-
-  <ul id="messages"></ul>
-
-  <input id="msg" placeholder="Type a message..." autocomplete="off" />
-  <button id="send">Send</button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
 
-    const messages = document.getElementById('messages');
+    const messagesEl = document.getElementById('messages');
     const msgInput = document.getElementById('msg');
+    const sendBtn = document.getElementById('send');
+    const chatTitle = document.getElementById('chatTitle');
+    const convListEl = document.getElementById('convList');
+    const resultsEl = document.getElementById('results');
+    const searchInput = document.getElementById('search');
 
-    // Not logged in (or session expired) -> go to login page
-    socket.on('connect_error', () => {
-      window.location.href = '/login.html';
-    });
+    let myName = null;
+    let currentConvId = null;
+    const conversations = new Map(); // id -> { id, other_id, other_username, unread }
+
+    // ---------- Connection ----------
+    socket.on('connect_error', () => { window.location.href = '/login.html'; });
 
     socket.on('me', (data) => {
-      document.getElementById('who').textContent = 'Logged in as ' + data.username;
-    });
-
-    function send() {
-      const text = msgInput.value.trim();
-      if (!text) return;
-      socket.emit('chat message', { text });
-      msgInput.value = '';
-    }
-
-    document.getElementById('send').onclick = send;
-    msgInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') send();
+      myName = data.username;
+      document.getElementById('who').textContent = myName;
     });
 
     document.getElementById('logout').onclick = async () => {
@@ -60,21 +87,143 @@
       window.location.href = '/login.html';
     };
 
-    function addMessage(data) {
-      const li = document.createElement('li');
-      li.textContent = `${data.username}: ${data.text}`;
-      messages.appendChild(li);
+    // ---------- Sidebar: conversation list ----------
+    async function loadConversations() {
+      const res = await fetch('/api/conversations');
+      if (res.status === 401) return (window.location.href = '/login.html');
+      const rows = await res.json();
+      rows.forEach((c) => conversations.set(c.id, { ...c, unread: 0 }));
+      renderConvList();
     }
 
-    socket.on('history', (rows) => {
-      rows.forEach(addMessage);
-      messages.scrollTop = messages.scrollHeight;
+    function renderConvList() {
+      convListEl.innerHTML = '';
+      for (const c of conversations.values()) {
+        const li = document.createElement('li');
+        if (c.id === currentConvId) li.classList.add('active');
+
+        const name = document.createElement('span');
+        name.textContent = c.other_username;
+        li.appendChild(name);
+
+        if (c.unread > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = c.unread;
+          li.appendChild(badge);
+        }
+
+        li.onclick = () => openConversation(c.id);
+        convListEl.appendChild(li);
+      }
+    }
+
+    // The other person started a chat with us
+    socket.on('new conversation', (c) => {
+      conversations.set(c.id, { ...c, unread: 0 });
+      renderConvList();
     });
 
-    socket.on('chat message', (data) => {
-      addMessage(data);
-      messages.scrollTop = messages.scrollHeight;
+    // ---------- Open a conversation ----------
+    async function openConversation(id) {
+      currentConvId = id;
+      const c = conversations.get(id);
+      c.unread = 0;
+      chatTitle.textContent = c.other_username;
+      messagesEl.innerHTML = '';
+      renderConvList();
+
+      const res = await fetch(`/api/conversations/${id}/messages`);
+      const rows = await res.json();
+      if (currentConvId !== id) return; // user already switched to another chat
+
+      rows.forEach(addMessage);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      msgInput.disabled = false;
+      sendBtn.disabled = false;
+      msgInput.focus();
+    }
+
+    function addMessage(m) {
+      const li = document.createElement('li');
+      if (m.username === myName) li.classList.add('mine');
+
+      const sender = document.createElement('div');
+      sender.className = 'sender';
+      sender.textContent = m.username;
+
+      const text = document.createElement('div');
+      text.textContent = m.text;
+
+      li.appendChild(sender);
+      li.appendChild(text);
+      messagesEl.appendChild(li);
+    }
+
+    // ---------- Sending / receiving ----------
+    function send() {
+      const text = msgInput.value.trim();
+      if (!text || currentConvId === null) return;
+      socket.emit('chat message', { conversationId: currentConvId, text });
+      msgInput.value = '';
+    }
+
+    sendBtn.onclick = send;
+    msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+    socket.on('chat message', (m) => {
+      if (m.conversation_id === currentConvId) {
+        addMessage(m);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      } else {
+        const c = conversations.get(m.conversation_id);
+        if (c) { c.unread++; renderConvList(); }
+      }
     });
+
+    // ---------- Search users ----------
+    let searchTimer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        const q = searchInput.value.trim();
+        resultsEl.innerHTML = '';
+        if (!q) return;
+
+        const res = await fetch('/api/users?q=' + encodeURIComponent(q));
+        const users = await res.json();
+
+        users.forEach((u) => {
+          const li = document.createElement('li');
+          li.textContent = u.username;
+          li.onclick = () => startChat(u.id);
+          resultsEl.appendChild(li);
+        });
+
+        if (users.length === 0) {
+          const li = document.createElement('li');
+          li.textContent = 'No users found';
+          resultsEl.appendChild(li);
+        }
+      }, 250); // wait 250ms after typing stops, so we don't search on every keystroke
+    });
+
+    async function startChat(userId) {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const c = await res.json();
+      if (!conversations.has(c.id)) conversations.set(c.id, { ...c, unread: 0 });
+
+      searchInput.value = '';
+      resultsEl.innerHTML = '';
+      openConversation(c.id);
+    }
+
+    loadConversations();
   </script>
 </body>
 </html>
