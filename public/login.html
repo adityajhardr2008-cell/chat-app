@@ -6,13 +6,13 @@
   <title>Chat · Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --ink: #0b0b0b; --soft: #f5f5f3; --beige: #efe7da; --line: #e8e8e4; --red: #e5322d;
       --ease: cubic-bezier(.22, 1, .36, 1);
       --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Poppins", "Segoe UI", sans-serif;
-      --serif: "Playfair Display", "New York", Georgia, serif;
+      --display: "Montserrat", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
     }
     * { box-sizing: border-box; margin: 0; }
     body { font-family: var(--sans); color: var(--ink); background: var(--beige);
@@ -23,13 +23,17 @@
             animation: rise .9s var(--ease); }
     @keyframes rise { from { opacity: 0; transform: translateY(30px) scale(.96); } to { opacity: 1; transform: none; } }
 
-    .brand { font-family: var(--serif); font-weight: 800; font-size: 46px; letter-spacing: -1px; }
+    .brand { font-family: var(--display); font-weight: 800; font-size: 42px; letter-spacing: -1.5px; }
     .sub { color: #777; font-size: 14.5px; margin: 6px 0 28px; }
 
     input { width: 100%; padding: 15px 22px; border-radius: 999px; border: 1px solid var(--line);
             background: var(--soft); font: inherit; font-size: 15px; margin-bottom: 12px; outline: none;
             transition: background .4s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease); }
     input:focus { background: #fff; border-color: var(--ink); box-shadow: 0 0 0 4px rgba(0,0,0,.05); }
+
+    .hint { font-size: 12.5px; color: #8a8a85; margin: -2px 0 12px 8px; max-height: 0; opacity: 0;
+            overflow: hidden; transition: max-height .5s var(--ease), opacity .5s var(--ease); }
+    .hint.show { max-height: 40px; opacity: 1; }
 
     #submit { width: 100%; padding: 15px; border-radius: 999px; border: none; background: var(--ink);
               color: #fff; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 6px;
@@ -55,6 +59,7 @@
 
     <input id="username" placeholder="Username" autocomplete="username" />
     <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+    <div class="hint" id="hint">At least 6 characters, with a letter and a number.</div>
     <button id="submit">Log in</button>
     <div id="error"></div>
 
@@ -64,18 +69,28 @@
   <script>
     let mode = 'login';
 
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
     const submitBtn = document.getElementById('submit');
     const errorBox = document.getElementById('error');
 
     document.getElementById('switch').onclick = () => {
       mode = mode === 'login' ? 'register' : 'login';
       const login = mode === 'login';
+
+      // Start each form fresh
+      usernameEl.value = '';
+      passwordEl.value = '';
+      passwordEl.autocomplete = login ? 'current-password' : 'new-password';
+      errorBox.textContent = '';
+
+      document.getElementById('hint').classList.toggle('show', !login);
       document.getElementById('sub').textContent = login
         ? 'Welcome back. Log in to continue.' : 'Create an account to start chatting.';
       submitBtn.textContent = login ? 'Log in' : 'Sign up';
       document.getElementById('switchText').textContent = login ? 'New here?' : 'Already have an account?';
       document.getElementById('switch').textContent = login ? 'Create an account' : 'Log in';
-      errorBox.textContent = '';
+      usernameEl.focus();
     };
 
     function showError(msg) {
@@ -85,24 +100,41 @@
       errorBox.classList.add('shake');
     }
 
+    function checkPassword(p) {
+      if (p.length < 6) return 'Password must be at least 6 characters';
+      if (!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) return 'Password needs at least one letter and one number';
+      return null;
+    }
+
     async function submit() {
+      const username = usernameEl.value.trim();
+      const password = passwordEl.value;
+
+      if (mode === 'register') {
+        if (!/^[A-Za-z0-9_.]{3,20}$/.test(username)) {
+          return showError('Username: 3-20 letters, numbers, _ or .');
+        }
+        const problem = checkPassword(password);
+        if (problem) return showError(problem);
+      }
+
       const res = await fetch('/' + mode, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: document.getElementById('username').value.trim(),
-          password: document.getElementById('password').value
-        })
+        body: JSON.stringify({ username, password })
       });
       const data = await res.json();
-      if (res.ok) window.location.href = '/';
+      if (res.ok) window.location.replace('/');
       else showError(data.error);
     }
 
     submitBtn.onclick = submit;
-    document.getElementById('password').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submit();
-    });
+    [usernameEl, passwordEl].forEach((i) =>
+      i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); })
+    );
+
+    // Coming back with the browser's back button should always show a clean form
+    window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
   </script>
 </body>
 </html>

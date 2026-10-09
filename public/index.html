@@ -6,36 +6,43 @@
   <title>Chat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --ink: #0b0b0b; --paper: #fff; --soft: #f5f5f3; --beige: #efe7da; --beige-deep: #e3d7c3;
       --muted: #8a8a85; --line: #e8e8e4; --red: #e5322d; --green: #2fbf71;
       --ease: cubic-bezier(.22, 1, .36, 1);
       --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Poppins", "Segoe UI", sans-serif;
-      --serif: "Playfair Display", "New York", Georgia, serif;
+      --display: "Montserrat", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
     }
     * { box-sizing: border-box; margin: 0; }
     html, body { height: 100%; }
     body { font-family: var(--sans); background: var(--paper); color: var(--ink);
            -webkit-font-smoothing: antialiased; overflow: hidden; }
     button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-    input { font-family: inherit; color: inherit; }
+    input, textarea { font-family: inherit; color: inherit; }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-thumb { background: var(--beige-deep); border-radius: 8px; }
 
     #app { display: flex; height: 100dvh; }
 
     /* ---------- Sidebar ---------- */
-    #sidebar { width: 330px; flex: none; border-right: 1px solid var(--line); display: flex;
+    #sidebar { width: 340px; flex: none; border-right: 1px solid var(--line); display: flex;
                flex-direction: column; background: #fff; }
-    .side-head { padding: 28px 22px 10px; display: flex; justify-content: space-between; align-items: center; }
-    .brand { font-family: var(--serif); font-weight: 800; font-size: 34px; letter-spacing: -.8px; }
+    .side-head { padding: 26px 22px 8px; display: flex; justify-content: space-between; align-items: center; }
+    .brand { font-family: var(--display); font-weight: 800; font-size: 30px; letter-spacing: -1.2px; }
+    .head-btns { display: flex; gap: 8px; }
     .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: #fff;
-                display: grid; place-items: center; font-size: 22px; line-height: 1;
-                transition: transform .5s var(--ease); }
-    .icon-btn:hover { transform: scale(1.1) rotate(90deg); }
+                display: grid; place-items: center; font-size: 22px; line-height: 1; position: relative;
+                transition: transform .5s var(--ease), background .4s var(--ease); }
+    .icon-btn.light { background: var(--beige); color: var(--ink); }
+    .icon-btn:hover { transform: scale(1.1); }
+    .icon-btn.plus:hover { transform: scale(1.1) rotate(90deg); }
     .icon-btn:active { transform: scale(.92); }
+    .dot-badge { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; border-radius: 999px;
+                 background: var(--red); color: #fff; font-size: 11px; font-weight: 600; display: grid;
+                 place-items: center; padding: 0 5px; transform: scale(0); transition: transform .5s var(--ease); }
+    .dot-badge.show { transform: scale(1); }
 
     #search { margin: 10px 18px 4px; padding: 12px 20px; border-radius: 999px; border: 1px solid transparent;
               background: var(--soft); font-size: 14.5px; outline: none;
@@ -44,21 +51,37 @@
 
     .label { padding: 16px 24px 6px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
     .list { padding: 4px 10px; }
-    #convList { flex: 1; overflow-y: auto; }
+    #scroll { flex: 1; overflow-y: auto; }
 
     .item { display: flex; align-items: center; gap: 13px; padding: 10px 12px; border-radius: 20px; cursor: pointer;
             transition: background .45s var(--ease), transform .45s var(--ease); animation: fade .6s var(--ease); }
+    .item.has-note { padding-top: 26px; }
     .item:hover { background: var(--soft); transform: translateX(4px); }
     .item.active { background: var(--beige); transform: none; }
     .item .mid { flex: 1; min-width: 0; }
     .item .name { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .item .sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+    .item .sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .item .sub.online { color: #1f9d57; }
+    .item .side-actions { display: flex; gap: 6px; }
     .empty-note { padding: 10px 14px; color: var(--muted); font-size: 14px; }
 
+    .mini { padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: var(--ink); color: #fff;
+            transition: transform .4s var(--ease), background .3s; }
+    .mini.ghost { background: var(--beige); color: var(--ink); }
+    .mini:hover { transform: translateY(-1px); }
+    .mini:active { transform: scale(.94); }
+    .info-btn { width: 28px; height: 28px; border-radius: 50%; background: var(--soft); font-size: 13px; font-weight: 600;
+                font-family: var(--display); transition: background .3s, color .3s; flex: none; }
+    .info-btn:hover { background: var(--ink); color: #fff; }
+
+    /* Avatars */
     .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--beige); color: var(--ink);
-              display: grid; place-items: center; font-family: var(--serif); font-weight: 700; font-size: 19px;
+              display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 18px;
               position: relative; flex: none; }
+    .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .avatar.sm { width: 34px; height: 34px; font-size: 14px; }
+    .avatar.lg { width: 56px; height: 56px; font-size: 22px; }
+    .avatar.xl { width: 104px; height: 104px; font-size: 40px; }
     .item.active .avatar { background: #fff; }
     .avatar.group { background: var(--ink); color: #fff; }
     .avatar .pip { position: absolute; right: -1px; bottom: -1px; width: 13px; height: 13px; border-radius: 50%;
@@ -66,23 +89,42 @@
                    transition: transform .5s var(--ease); }
     .avatar.on .pip { transform: scale(1); }
 
+    /* Note cloud (24h note, friends only) */
+    .note { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-28%);
+            max-width: 112px; background: #fff; border: 1px solid var(--line); border-radius: 15px;
+            padding: 4px 10px; font-family: var(--sans); font-size: 11px; font-weight: 500; line-height: 1.3;
+            color: var(--ink); box-shadow: 0 6px 18px rgba(0,0,0,.10); z-index: 3; pointer-events: none;
+            animation: float 5s ease-in-out infinite; }
+    .note span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .note::before, .note::after { content: ""; position: absolute; background: #fff; border: 1px solid var(--line);
+                                  border-radius: 50%; }
+    .note::before { width: 7px; height: 7px; left: 26%; bottom: -8px; }
+    .note::after { width: 4px; height: 4px; left: 20%; bottom: -13px; }
+    .avatar.xl .note { max-width: 170px; font-size: 12.5px; padding: 6px 13px; bottom: calc(100% + 6px); }
+
     .badge { background: var(--ink); color: #fff; border-radius: 999px; min-width: 22px; height: 22px;
              display: grid; place-items: center; font-size: 12px; font-weight: 600; padding: 0 7px;
              animation: pop .5s var(--ease); }
 
     #meBar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); }
-    #meBar .who { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #meBar .me-click { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer;
+                       padding: 4px; border-radius: 16px; transition: background .4s var(--ease); }
+    #meBar .me-click:hover { background: var(--soft); }
+    #meBar .who { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pill { padding: 9px 18px; border-radius: 999px; background: var(--beige); font-weight: 500; font-size: 13.5px;
             transition: background .4s var(--ease), color .4s var(--ease), transform .4s var(--ease); }
     .pill:hover { background: var(--ink); color: #fff; transform: translateY(-1px); }
     .pill:active { transform: scale(.95); }
+    .pill.danger { background: var(--red); color: #fff; }
+    .pill.danger:hover { background: #c4231f; }
 
     /* ---------- Main ---------- */
     #main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
     #chatHeader { display: flex; align-items: center; gap: 14px; padding: 18px 28px; min-height: 86px;
                   border-bottom: 1px solid var(--line); transition: opacity .6s var(--ease); }
     #chatHeader.hidden { opacity: 0; pointer-events: none; }
-    .t-name { font-family: var(--serif); font-weight: 700; font-size: 23px; letter-spacing: -.3px; }
+    #hAvatar { cursor: pointer; }
+    .t-name { font-family: var(--display); font-weight: 700; font-size: 21px; letter-spacing: -.4px; }
     .t-status { font-size: 12.5px; color: var(--muted); transition: color .5s var(--ease); }
     .t-status.online { color: #1f9d57; }
     #headerActions { margin-left: auto; }
@@ -94,10 +136,14 @@
     .row.theirs { align-items: flex-start; align-self: flex-start; transform-origin: bottom left; }
     .row.enter { animation: pop .65s var(--ease); }
     .row.updated .bubble { animation: bump .6s var(--ease); }
+    .system { align-self: center; font-size: 12px; color: var(--muted); background: var(--soft); padding: 6px 14px;
+              border-radius: 999px; margin: 10px 0; animation: fade .6s var(--ease); text-align: center; }
 
-    .sender { font-size: 12px; font-weight: 600; color: var(--muted); margin: 8px 0 3px 14px; }
+    .sender { font-size: 12px; font-weight: 600; color: var(--muted); margin: 8px 0 3px 14px; cursor: pointer;
+              transition: color .3s; }
+    .sender:hover { color: var(--ink); text-decoration: underline; }
     .bubble { padding: 11px 18px; border-radius: 22px; font-size: 15px; line-height: 1.45;
-              overflow-wrap: anywhere; }
+              overflow-wrap: anywhere; white-space: pre-wrap; }
     .mine .bubble { background: var(--ink); color: #fff; border-bottom-right-radius: 7px; }
     .theirs .bubble { background: var(--beige); border-bottom-left-radius: 7px; }
     .bubble.deleted { background: transparent !important; color: var(--muted) !important; font-style: italic;
@@ -105,6 +151,7 @@
 
     .meta { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--muted);
             margin: 4px 8px 8px; height: 16px; }
+    .meta .seen { color: var(--ink); font-weight: 600; animation: fade .5s var(--ease); }
     .actions { display: flex; gap: 10px; opacity: 0; transform: translateY(-3px); pointer-events: none;
                transition: opacity .45s var(--ease), transform .45s var(--ease); }
     .row:hover .actions { opacity: 1; transform: none; pointer-events: auto; }
@@ -112,7 +159,6 @@
     .actions a.del:hover { color: var(--red); }
     .actions a:hover { text-decoration: underline; }
 
-    /* typing indicator */
     #typing { height: 38px; padding: 0 28px; display: flex; align-items: center; gap: 10px; opacity: 0;
               transform: translateY(8px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
     #typing.show { opacity: 1; transform: none; }
@@ -122,6 +168,14 @@
     .dots i:nth-child(2) { animation-delay: .16s; }
     .dots i:nth-child(3) { animation-delay: .32s; }
     #typingText { font-size: 12.5px; color: var(--muted); }
+
+    #composerNote { padding: 0 28px 8px; font-size: 12.5px; color: var(--muted); text-align: center; }
+    #composerNote:empty { display: none; }
+    #requestBar { display: none; margin: 0 24px 24px; padding: 18px 22px; border-radius: 24px; background: var(--beige);
+                  align-items: center; gap: 14px; flex-wrap: wrap; animation: pop .6s var(--ease); }
+    #requestBar.show { display: flex; }
+    #requestBar .txt { flex: 1; min-width: 180px; font-size: 14.5px; font-weight: 500; }
+    #requestBar .btns { display: flex; gap: 8px; }
 
     #inputBar { display: flex; gap: 10px; padding: 6px 24px 24px; align-items: center; }
     #msg { flex: 1; padding: 15px 24px; border-radius: 999px; border: 1px solid var(--line); background: var(--soft);
@@ -138,7 +192,7 @@
     #empty { position: absolute; inset: 0; background: #fff; display: grid; place-items: center; text-align: center;
              transition: opacity .7s var(--ease); z-index: 2; }
     #empty.hidden { opacity: 0; pointer-events: none; }
-    #empty h1 { font-family: var(--serif); font-weight: 800; font-size: 54px; letter-spacing: -1.5px; }
+    #empty h1 { font-family: var(--display); font-weight: 800; font-size: 48px; letter-spacing: -2px; }
     #empty p { color: var(--muted); margin-top: 10px; }
 
     /* ---------- Modal + toast ---------- */
@@ -146,16 +200,19 @@
                -webkit-backdrop-filter: blur(10px); display: grid; place-items: center; opacity: 0;
                transition: opacity .4s var(--ease); z-index: 50; }
     .overlay.show { opacity: 1; }
-    .modal { width: min(420px, calc(100vw - 40px)); background: #fff; border-radius: 30px; padding: 30px;
-             transform: scale(.88) translateY(24px); transition: transform .6s var(--ease);
-             box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+    .modal { width: min(420px, calc(100vw - 32px)); max-height: 90vh; overflow-y: auto; background: #fff;
+             border-radius: 30px; padding: 30px; transform: scale(.88) translateY(24px);
+             transition: transform .6s var(--ease); box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+    .modal.wide { width: min(500px, calc(100vw - 32px)); }
     .overlay.show .modal { transform: none; }
-    .modal h3 { font-family: var(--serif); font-weight: 800; font-size: 28px; letter-spacing: -.5px; margin-bottom: 8px; }
-    .modal p { color: #666; font-size: 14.5px; line-height: 1.5; margin-bottom: 18px; }
+    .modal h3 { font-family: var(--display); font-weight: 800; font-size: 25px; letter-spacing: -.8px; margin-bottom: 8px; }
+    .modal > p { color: #666; font-size: 14.5px; line-height: 1.5; margin-bottom: 18px; }
     .m-input { width: 100%; padding: 14px 20px; border-radius: 18px; border: 1px solid var(--line);
                background: var(--soft); font-size: 15px; outline: none; margin-bottom: 12px;
-               transition: background .4s var(--ease), border-color .4s var(--ease); }
-    .m-input:focus { background: #fff; border-color: var(--ink); }
+               transition: background .4s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease); }
+    .m-input:focus { background: #fff; border-color: var(--ink); box-shadow: 0 0 0 4px rgba(0,0,0,.05); }
+    .m-area { resize: none; line-height: 1.5; min-height: 112px; border-radius: 22px; margin-bottom: 4px; }
+    .counter { text-align: right; font-size: 11.5px; color: var(--muted); margin: 0 8px 12px; }
     .m-actions { display: flex; gap: 10px; margin-top: 20px; }
     .btn { flex: 1; padding: 14px; border-radius: 999px; font-weight: 600; font-size: 15px;
            transition: transform .45s var(--ease), box-shadow .45s var(--ease), background .3s; }
@@ -167,14 +224,60 @@
     .btn.danger { background: var(--red); color: #fff; }
     .btn.danger:hover { box-shadow: 0 12px 26px rgba(229,50,45,.4); }
 
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .field-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 14px 4px 7px; }
+    .section-title { font-family: var(--display); font-weight: 700; font-size: 15px; margin: 22px 4px 4px;
+                     padding-top: 18px; border-top: 1px solid var(--line); }
+    .help { font-size: 12.5px; color: var(--muted); margin: 0 4px 10px; line-height: 1.45; }
+
+    /* Profile + info */
+    .profile { text-align: left; }
+    .profile.center { text-align: center; padding-top: 34px; }
+    .profile.center .avatar { margin: 0 auto; }
+    .av-row { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; padding-top: 22px; }
+    .av-row .btns { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+    .p-name { font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -.6px; margin-top: 16px; }
+    .p-user { color: var(--muted); font-size: 14px; margin-top: 2px; }
+    .p-bio { margin-top: 14px; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; }
+    .p-bio.muted { color: var(--muted); font-style: italic; }
+    .p-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 22px; }
+    .link-btn { color: var(--muted); font-size: 13px; margin-top: 16px; text-decoration: underline; transition: color .3s; }
+    .link-btn:hover { color: var(--red); }
+
+    .u-row { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-radius: 16px; cursor: pointer;
+             transition: background .35s var(--ease); }
+    .u-row:hover { background: var(--soft); }
+    .u-row .mid { flex: 1; min-width: 0; }
+    .u-row .nm { font-weight: 500; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u-row .un { font-size: 12px; color: var(--muted); }
+    .u-row .tag { font-size: 11.5px; color: var(--muted); background: var(--soft); padding: 3px 10px; border-radius: 999px; }
+    .u-row .btns { display: flex; gap: 6px; }
+
+    /* Switch + segmented control */
+    .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 4px; }
+    .set-row .t { font-size: 14.5px; font-weight: 500; }
+    .set-row .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; max-width: 250px; line-height: 1.4; }
+    .switch { width: 50px; height: 30px; border-radius: 999px; background: #d9d9d4; position: relative; flex: none;
+              transition: background .45s var(--ease); }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+                     background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .5s var(--ease); }
+    .switch.on { background: var(--ink); }
+    .switch.on::after { transform: translateX(20px); }
+    .seg { display: flex; background: var(--soft); border-radius: 999px; padding: 3px; flex: none; }
+    .seg button { padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--muted);
+                  transition: background .4s var(--ease), color .4s var(--ease); }
+    .seg button.on { background: var(--ink); color: #fff; }
+
+    /* Group picker */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { background: var(--ink); color: #fff; border-radius: 999px; padding: 6px 13px; font-size: 13px;
             cursor: pointer; animation: pop .5s var(--ease); transition: background .3s; }
     .chip:hover { background: var(--red); }
-    .plist { max-height: 170px; overflow-y: auto; }
-    .pitem { padding: 10px 14px; border-radius: 14px; cursor: pointer; font-size: 14.5px;
-             transition: background .35s var(--ease), transform .35s var(--ease); }
-    .pitem:hover { background: var(--beige); transform: translateX(3px); }
+    .plist { border: 1px solid var(--line); border-radius: 20px; max-height: 190px; overflow-y: auto; padding: 6px;
+             margin: -4px 0 12px; background: #fff; animation: fade .4s var(--ease); }
+    .pitem { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 14px; cursor: pointer;
+             font-size: 14.5px; transition: background .3s var(--ease); }
+    .pitem:hover { background: var(--beige); }
+    .pitem .un { font-size: 12px; color: var(--muted); }
 
     #toast { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 30px); background: var(--ink);
              color: #fff; padding: 13px 24px; border-radius: 999px; font-size: 14px; opacity: 0;
@@ -185,6 +288,7 @@
     @keyframes pop { 0% { opacity: 0; transform: translateY(18px) scale(.88); } 100% { opacity: 1; transform: none; } }
     @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     @keyframes bump { 50% { transform: scale(1.05); } }
+    @keyframes float { 0%, 100% { margin-bottom: 0; } 50% { margin-bottom: 3px; } }
     @keyframes dance { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-6px); opacity: 1; } }
   </style>
 </head>
@@ -193,18 +297,33 @@
     <div id="sidebar">
       <div class="side-head">
         <div class="brand">Chats</div>
-        <button class="icon-btn" id="newGroup" title="New group">+</button>
+        <div class="head-btns">
+          <button class="icon-btn light" id="friendsBtn" title="Friends">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
+              <circle cx="17.5" cy="9" r="2.5" /><path d="M17.5 14.2c2.4.2 3.7 1.7 4 4.3" />
+            </svg>
+            <span class="dot-badge" id="friendBadge"></span>
+          </button>
+          <button class="icon-btn plus" id="newGroup" title="New group">+</button>
+        </div>
       </div>
 
       <input id="search" placeholder="Search people..." autocomplete="off" />
       <div class="list" id="results"></div>
 
-      <div class="label">Messages</div>
-      <div class="list" id="convList"></div>
+      <div id="scroll">
+        <div id="requestsBox"></div>
+        <div class="label">Messages</div>
+        <div class="list" id="convList"></div>
+      </div>
 
       <div id="meBar">
-        <div class="avatar" id="meAvatar"></div>
-        <span class="who" id="who"></span>
+        <div class="me-click" id="meClick" title="Your profile">
+          <div id="meAvatar"></div>
+          <span class="who" id="who"></span>
+        </div>
         <button class="pill" id="logout">Log out</button>
       </div>
     </div>
@@ -233,6 +352,9 @@
         <span id="typingText"></span>
       </div>
 
+      <div id="composerNote"></div>
+      <div id="requestBar"></div>
+
       <div id="inputBar">
         <input id="msg" placeholder="Message" autocomplete="off" disabled />
         <button id="send" disabled aria-label="Send">
@@ -256,10 +378,11 @@
     const convListEl = $('convList'), resultsEl = $('results'), searchInput = $('search');
     const typingEl = $('typing'), typingText = $('typingText');
 
-    let myId = null, myName = null, currentConvId = null;
-    const conversations = new Map(); // id -> conversation view (+ unread)
+    let me = null, myId = null, currentConvId = null, firstLoadDone = false;
+    const conversations = new Map();   // id -> conversation view (+ other_read)
     const onlineUsers = new Set();
-    const typers = new Map();        // username -> timeout (people typing in the open chat)
+    const typers = new Map();          // name -> timeout
+    let friends = { friends: [], incoming: [], outgoing: [] };
 
     function el(tag, cls, text) {
       const e = document.createElement(tag);
@@ -268,7 +391,20 @@
       return e;
     }
 
-    // ============ Custom alert / confirm / prompt ============
+    // Small fetch wrapper: always returns { ok, data }
+    async function api(method, url, body) {
+      const res = await fetch(url, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (res.status === 401) { window.location.replace('/login.html'); return { ok: false, data: {} }; }
+      let data = {};
+      try { data = await res.json(); } catch (e) {}
+      return { ok: res.ok, data };
+    }
+
+    // ============ Toast + custom modal (replaces alert / confirm / prompt) ============
     let toastTimer;
     function toast(msg) {
       const t = $('toast');
@@ -278,64 +414,202 @@
       toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
     }
 
-    // Returns a Promise:
-    //  - confirm box     -> true, or null if cancelled
-    //  - with `input`    -> the typed string, or null if cancelled
-    //  - with getValue   -> whatever getValue() returns, or null if cancelled
+    const modalStack = [];
+
+    // Options: title, message, input{}, textarea{}, body (element or fn(close)), confirmText, cancelText,
+    //          danger, noConfirm, wide, validate(), getValue()
+    // Resolves: true / typed text / getValue() on confirm, or null if cancelled.
     function modal(opts) {
       return new Promise((resolve) => {
         const overlay = el('div', 'overlay');
-        const card = el('div', 'modal');
-        card.appendChild(el('h3', '', opts.title));
+        const card = el('div', 'modal' + (opts.wide ? ' wide' : ''));
+        if (opts.title) card.appendChild(el('h3', '', opts.title));
         if (opts.message) card.appendChild(el('p', '', opts.message));
-
-        let inputEl = null;
-        if (opts.input) {
-          inputEl = el('input', 'm-input');
-          inputEl.value = opts.input.value || '';
-          inputEl.placeholder = opts.input.placeholder || '';
-          inputEl.maxLength = opts.input.maxLength || 2000;
-          card.appendChild(inputEl);
-        }
-        if (opts.body) card.appendChild(opts.body);
-
-        const actions = el('div', 'm-actions');
-        const cancel = el('button', 'btn ghost', opts.cancelText || 'Cancel');
-        const ok = el('button', 'btn ' + (opts.danger ? 'danger' : 'primary'), opts.confirmText || 'OK');
-        actions.append(cancel, ok);
-        card.appendChild(actions);
-        overlay.appendChild(card);
-        document.body.appendChild(overlay);
-        requestAnimationFrame(() => overlay.classList.add('show'));
 
         function close(value) {
           document.removeEventListener('keydown', onKey);
+          modalStack.splice(modalStack.indexOf(overlay), 1);
           overlay.classList.remove('show');
           setTimeout(() => overlay.remove(), 450);
-          resolve(value);
+          resolve(value === undefined ? null : value);
         }
+
+        let field = null;
+        if (opts.input) {
+          field = el('input', 'm-input');
+          field.value = opts.input.value || '';
+          field.placeholder = opts.input.placeholder || '';
+          field.maxLength = opts.input.maxLength || 2000;
+          card.appendChild(field);
+        }
+        if (opts.textarea) {
+          field = el('textarea', 'm-input m-area');
+          field.value = opts.textarea.value || '';
+          field.placeholder = opts.textarea.placeholder || '';
+          field.maxLength = opts.textarea.maxLength || 2000;
+          const count = el('div', 'counter');
+          const upd = () => { count.textContent = `${field.value.length} / ${field.maxLength}`; };
+          field.addEventListener('input', upd);
+          upd();
+          card.append(field, count);
+        }
+        if (opts.body) card.appendChild(typeof opts.body === 'function' ? opts.body(close) : opts.body);
+
+        const actions = el('div', 'm-actions');
+        const cancel = el('button', 'btn ghost', opts.cancelText || (opts.noConfirm ? 'Close' : 'Cancel'));
+        actions.appendChild(cancel);
+        let ok = null;
+        if (!opts.noConfirm) {
+          ok = el('button', 'btn ' + (opts.danger ? 'danger' : 'primary'), opts.confirmText || 'OK');
+          actions.appendChild(ok);
+        }
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        modalStack.push(overlay);
+        requestAnimationFrame(() => overlay.classList.add('show'));
+
         function confirmIt() {
           if (opts.validate) {
             const err = opts.validate();
             if (err) return toast(err);
           }
           if (opts.getValue) close(opts.getValue());
-          else if (inputEl) close(inputEl.value);
+          else if (field) close(field.value);
           else close(true);
         }
         function onKey(e) {
-          if (e.key === 'Escape') close(null);
-          if (e.key === 'Enter' && (inputEl && document.activeElement === inputEl)) confirmIt();
+          if (modalStack[modalStack.length - 1] !== overlay) return; // only the top-most modal listens
+          if (e.key === 'Escape') return close(null);
+          if (e.key === 'Enter' && field && document.activeElement === field && !opts.noConfirm) {
+            if (field.tagName === 'TEXTAREA' && e.shiftKey) return; // Shift+Enter = new line
+            e.preventDefault();
+            confirmIt();
+          }
         }
 
-        ok.onclick = confirmIt;
+        if (ok) ok.onclick = confirmIt;
         cancel.onclick = () => close(null);
         overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
         document.addEventListener('keydown', onKey);
 
-        const first = inputEl || (opts.body && opts.body.querySelector('input'));
-        if (first) setTimeout(() => first.focus(), 250);
+        const first = card.querySelector('.m-input');
+        if (first) setTimeout(() => first.focus(), 300);
       });
+    }
+
+    // ============ Avatars, notes ============
+    function activeNote(u) {
+      return u && u.note && u.note_expires > Date.now() ? u.note : null;
+    }
+
+    // info: { url, name, group, online (true/false shows a status dot), note }
+    function avatarEl(info, size) {
+      const a = el('div', 'avatar' + (size ? ' ' + size : '') + (info.group ? ' group' : '') + (info.online ? ' on' : ''));
+      const letter = ((info.name || '?')[0] || '?').toUpperCase();
+      a.appendChild(document.createTextNode(letter));
+      if (info.url) {
+        const img = el('img');
+        img.alt = '';
+        img.src = info.url;
+        img.onerror = () => img.remove(); // falls back to the letter
+        a.appendChild(img);
+      }
+      if (info.online !== undefined) a.appendChild(el('span', 'pip'));
+      if (info.note) {
+        const n = el('div', 'note');
+        n.appendChild(el('span', '', info.note));
+        a.appendChild(n);
+      }
+      return a;
+    }
+
+    function userAvatar(u, size, withNote) {
+      return avatarEl({ url: u.avatar_url, name: u.display_name, note: withNote ? activeNote(u) : null }, size);
+    }
+
+    // Square-crop and shrink a picture to 256px JPEG before uploading
+    function resizeImage(file, size = 256) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const s = Math.min(img.width, img.height);
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = size;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, size, size);
+          ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+          URL.revokeObjectURL(url);
+          resolve(cv.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = () => reject(new Error('Not an image'));
+        img.src = url;
+      });
+    }
+
+    function pickImage() {
+      return new Promise((resolve) => {
+        const input = el('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async () => {
+          const f = input.files[0];
+          if (!f) return resolve(null);
+          try { resolve(await resizeImage(f)); } catch (e) { toast('That file isn\u2019t a picture'); resolve(null); }
+        };
+        input.click();
+      });
+    }
+
+    // Counter textarea used in profile / group info
+    function areaWithCounter(value, max, placeholder) {
+      const wrap = el('div');
+      const field = el('textarea', 'm-input m-area');
+      field.style.minHeight = '84px';
+      field.value = value || '';
+      field.maxLength = max;
+      field.placeholder = placeholder || '';
+      const count = el('div', 'counter');
+      const upd = () => { count.textContent = `${field.value.length} / ${max}`; };
+      field.addEventListener('input', upd);
+      upd();
+      wrap.append(field, count);
+      return { wrap, field };
+    }
+
+    function switchEl(on, onChange) {
+      const s = el('button', 'switch' + (on ? ' on' : ''));
+      s.onclick = () => { s.classList.toggle('on'); onChange(s.classList.contains('on')); };
+      return s;
+    }
+
+    function segmented(options, value, onChange) {
+      const seg = el('div', 'seg');
+      options.forEach(([val, label]) => {
+        const b = el('button', val === value ? 'on' : '', label);
+        b.onclick = () => {
+          seg.querySelectorAll('button').forEach((x) => x.classList.remove('on'));
+          b.classList.add('on');
+          onChange(val);
+        };
+        seg.appendChild(b);
+      });
+      return seg;
+    }
+
+    // Row for a user in lists: avatar + names + optional right side element
+    function userRow(u, right, onClick) {
+      const row = el('div', 'u-row');
+      row.appendChild(userAvatar(u, 'sm'));
+      const mid = el('div', 'mid');
+      mid.appendChild(el('div', 'nm', u.display_name));
+      mid.appendChild(el('div', 'un', '@' + u.username));
+      row.appendChild(mid);
+      if (right) row.appendChild(right);
+      if (onClick) row.onclick = onClick;
+      return row;
     }
 
     // "Search people, click to add as chips" widget
@@ -345,13 +619,14 @@
       const input = el('input', 'm-input');
       input.placeholder = 'Search people...';
       const list = el('div', 'plist');
-      const selected = new Map(); // id -> username
+      list.style.display = 'none';
+      const selected = new Map();
       let timer;
 
       function renderChips() {
         chips.innerHTML = '';
         selected.forEach((name, id) => {
-          const chip = el('span', 'chip', name + '  ×');
+          const chip = el('span', 'chip', name + '  \u00d7');
           chip.onclick = () => { selected.delete(id); renderChips(); };
           chips.appendChild(chip);
         });
@@ -363,15 +638,24 @@
         timer = setTimeout(async () => {
           const q = input.value.trim();
           list.innerHTML = '';
-          if (!q) return;
-          const res = await fetch('/api/users?q=' + encodeURIComponent(q));
-          const users = (await res.json()).filter((u) => !selected.has(u.id) && !excludeIds.includes(u.id));
+          if (!q) { list.style.display = 'none'; return; }
+          const r = await api('GET', '/api/users?q=' + encodeURIComponent(q));
+          const users = (Array.isArray(r.data) ? r.data : [])
+            .filter((u) => !selected.has(u.id) && !excludeIds.includes(u.id));
+          list.style.display = 'block';
           users.forEach((u) => {
-            const row = el('div', 'pitem', u.username);
+            const row = el('div', 'pitem');
+            row.appendChild(userAvatar(u, 'sm'));
+            const mid = el('div');
+            mid.appendChild(el('div', '', u.display_name));
+            mid.appendChild(el('div', 'un', '@' + u.username));
+            row.appendChild(mid);
             row.onclick = () => {
-              selected.set(u.id, u.username);
+              selected.set(u.id, u.display_name);
               renderChips();
               row.remove();
+              if (!list.children.length) list.style.display = 'none';
+              input.focus();
             };
             list.appendChild(row);
           });
@@ -394,91 +678,213 @@
       return day === today ? time : `${day}, ${time}`;
     }
 
-    // ============ Connection ============
-    socket.on('connect_error', () => { window.location.href = '/login.html'; });
+    // ============ Connection + keeping the right account ============
+    socket.on('connect_error', () => { window.location.replace('/login.html'); });
+    socket.on('notice', (msg) => toast(msg));
 
-    socket.on('me', (data) => {
-      myId = data.id;
-      myName = data.username;
-      $('who').textContent = myName;
-      $('meAvatar').textContent = myName[0].toUpperCase();
+    // If another tab logged in as someone else (or you logged out), this page must not
+    // keep showing the old account's chats.
+    async function verifySession() {
+      const res = await fetch('/api/me', { cache: 'no-store' });
+      if (res.status !== 200) return window.location.replace('/login.html');
+      const p = await res.json();
+      if (myId !== null && p.id !== myId) window.location.reload();
+    }
+    window.addEventListener('focus', verifySession);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') { verifySession(); markRead(); }
     });
+    window.addEventListener('pageshow', (e) => { if (e.persisted) window.location.reload(); });
+
+    socket.on('me', (p) => {
+      me = p;
+      myId = p.id;
+      renderMe();
+      // (Re)load everything fresh on every connect
+      loadConversations();
+      loadFriends();
+    });
+    socket.on('me updated', (p) => { me = p; renderMe(); });
+
+    function renderMe() {
+      if (!me) return;
+      $('who').textContent = me.display_name;
+      $('meAvatar').replaceChildren(userAvatar(me, null, true));
+    }
 
     $('logout').onclick = async () => {
+      conversations.clear();
+      socket.disconnect();
       await fetch('/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+      window.location.replace('/login.html');
     };
+    $('meClick').onclick = () => openMyProfile();
+
+    // Notes expire after 24h: refresh the list once a minute so they disappear on time
+    setInterval(() => { renderSidebar(); renderMe(); }, 60000);
 
     // ============ Online status ============
     socket.on('online users', (ids) => {
       onlineUsers.clear();
       ids.forEach((id) => onlineUsers.add(id));
-      renderConvList();
+      renderSidebar();
       updateHeader();
     });
 
     socket.on('presence', ({ userId, online }) => {
       if (online) onlineUsers.add(userId); else onlineUsers.delete(userId);
-      renderConvList();
+      renderSidebar();
       updateHeader();
     });
 
-    function isOnline(c) { return c.type === 'direct' && onlineUsers.has(c.other_id); }
+    // ============ Conversation helpers ============
+    const titleOf = (c) => (c.type === 'direct' ? c.other.display_name : c.name);
+    const isOnline = (c) => c.type === 'direct' && !c.blocked_by_me && onlineUsers.has(c.other.id);
+    const isIncomingRequest = (c) => c.type === 'direct' && c.status === 'pending' && c.created_by !== myId;
+    const isInvite = (c) => c.type === 'group' && c.my_status === 'invited';
 
     function statusText(c) {
-      if (c.type === 'direct') return isOnline(c) ? 'online' : 'offline';
-      const on = c.members.filter((m) => onlineUsers.has(m.id)).length;
-      return `${c.members.length} members · ${on} online`;
+      if (c.type === 'direct') return c.blocked_by_me ? 'blocked' : isOnline(c) ? 'online' : 'offline';
+      const on = (c.members || []).filter((m) => onlineUsers.has(m.id)).length;
+      return `${c.member_count} members \u00b7 ${on} online`;
     }
 
-    function avatarEl(c) {
-      const a = el('div', 'avatar' + (c.type === 'group' ? ' group' : '') + (isOnline(c) ? ' on' : ''));
-      a.textContent = (c.title || '?')[0].toUpperCase();
-      if (c.type === 'direct') a.appendChild(el('span', 'pip'));
-      return a;
+    function avatarOfConv(c, withNote) {
+      if (c.type === 'direct') {
+        return { url: c.other.avatar_url, name: c.other.display_name, online: isOnline(c),
+                 note: withNote ? activeNote(c.other) : null };
+      }
+      return { url: c.avatar_url, name: c.name, group: true };
     }
 
+    // ============ Header ============
     function updateHeader() {
       const c = conversations.get(currentConvId);
       if (!c) return;
-      $('hAvatar').replaceChildren(avatarEl(c));
-      $('titleName').textContent = c.title;
+      $('hAvatar').replaceChildren(avatarEl(avatarOfConv(c, false)));
+      $('titleName').textContent = titleOf(c);
       const st = $('titleStatus');
       st.textContent = statusText(c);
       st.className = 't-status' + (isOnline(c) ? ' online' : '');
 
       const actions = $('headerActions');
       actions.innerHTML = '';
-      if (c.type === 'group') {
-        const b = el('button', 'pill', 'Add people');
-        b.onclick = () => addPeople(c);
-        actions.appendChild(b);
-      }
+      const b = el('button', 'pill', c.type === 'group' ? 'Group info' : 'Profile');
+      b.onclick = () => openInfo(c);
+      actions.appendChild(b);
+    }
+    $('hAvatar').onclick = () => { const c = conversations.get(currentConvId); if (c) openInfo(c); };
+
+    function openInfo(c) {
+      if (c.type === 'group') openGroupInfo(c.id);
+      else openProfile(c.other.id);
     }
 
-    // ============ Sidebar: conversation list ============
+    // ============ Sidebar ============
     async function loadConversations() {
-      const res = await fetch('/api/conversations');
-      if (res.status === 401) return (window.location.href = '/login.html');
-      (await res.json()).forEach((c) => conversations.set(c.id, { ...c, unread: 0 }));
-      renderConvList();
+      const r = await api('GET', '/api/conversations');
+      if (!r.ok) return;
+      conversations.clear();
+      r.data.forEach((c) => conversations.set(c.id, { ...c, unread: c.id === currentConvId ? 0 : c.unread }));
+      renderSidebar();
+      updateHeader();
+      updateComposer();
     }
 
     function upsertConv(v) {
       const old = conversations.get(v.id);
-      conversations.set(v.id, { ...v, unread: old ? old.unread : 0 });
-      renderConvList();
-      if (v.id === currentConvId) updateHeader();
+      conversations.set(v.id, { ...v, unread: old ? old.unread : v.unread, other_read: old ? old.other_read : null });
+      renderSidebar();
+      if (v.id === currentConvId) { updateHeader(); updateComposer(); }
+    }
+
+    function removeConv(id) {
+      conversations.delete(id);
+      if (currentConvId === id) showEmpty();
+      renderSidebar();
     }
 
     socket.on('new conversation', upsertConv);
     socket.on('conversation updated', upsertConv);
+    socket.on('conversation removed', ({ id }) => removeConv(id));
+
+    // Someone's profile changed: update every place we hold a copy of it
+    socket.on('user updated', (u) => {
+      conversations.forEach((c) => {
+        if (c.other && c.other.id === u.id) c.other = u;
+        if (c.members) c.members = c.members.map((m) => (m.id === u.id ? u : m));
+        if (c.invited) c.invited = c.invited.map((m) => (m.id === u.id ? u : m));
+      });
+      ['friends', 'incoming', 'outgoing'].forEach((k) => {
+        friends[k] = friends[k].map((m) => (m.id === u.id ? u : m));
+      });
+      renderSidebar();
+      updateHeader();
+    });
+
+    function renderSidebar() {
+      if (myId === null) return;
+      renderRequests();
+      renderConvList();
+    }
+
+    function renderRequests() {
+      const box = $('requestsBox');
+      box.innerHTML = '';
+      const all = [...conversations.values()];
+      const msgReqs = all.filter(isIncomingRequest);
+      const invites = all.filter(isInvite);
+      if (!msgReqs.length && !invites.length) return;
+
+      box.appendChild(el('div', 'label', `Requests (${msgReqs.length + invites.length})`));
+      const list = el('div', 'list');
+
+      msgReqs.forEach((c) => {
+        const item = el('div', 'item' + (c.id === currentConvId ? ' active' : ''));
+        item.appendChild(avatarEl(avatarOfConv(c, false)));
+        const mid = el('div', 'mid');
+        mid.appendChild(el('div', 'name', c.other.display_name));
+        mid.appendChild(el('div', 'sub', 'wants to message you'));
+        item.appendChild(mid);
+        if (c.unread > 0) item.appendChild(el('span', 'badge', c.unread));
+        item.onclick = () => openConversation(c.id);
+        list.appendChild(item);
+      });
+
+      invites.forEach((c) => {
+        const item = el('div', 'item');
+        item.style.cursor = 'default';
+        item.appendChild(avatarEl({ url: c.avatar_url, name: c.name, group: true }));
+        const mid = el('div', 'mid');
+        mid.appendChild(el('div', 'name', c.name));
+        mid.appendChild(el('div', 'sub',
+          `${c.invited_by ? 'Invited by ' + c.invited_by : 'Group invite'} \u00b7 ${c.member_count} members`));
+        item.appendChild(mid);
+
+        const acts = el('div', 'side-actions');
+        const yes = el('button', 'mini', 'Join');
+        yes.onclick = (e) => { e.stopPropagation(); respondInvite(c.id, true); };
+        const no = el('button', 'mini ghost', 'Decline');
+        no.onclick = (e) => { e.stopPropagation(); respondInvite(c.id, false); };
+        acts.append(yes, no);
+        item.appendChild(acts);
+        list.appendChild(item);
+      });
+      box.appendChild(list);
+    }
+
+    async function respondInvite(id, accept) {
+      const r = await api('POST', `/api/groups/${id}/respond`, { accept });
+      if (!r.ok) return toast(r.data.error || 'Something went wrong');
+      if (accept) { upsertConv(r.data); toast('You joined the group'); }
+      else removeConv(id);
+    }
 
     function renderConvList() {
       convListEl.innerHTML = '';
-      const sorted = [...conversations.values()].sort(
-        (a, b) => (b.last_at || '').localeCompare(a.last_at || '') || b.id - a.id
-      );
+      const sorted = [...conversations.values()]
+        .filter((c) => !isIncomingRequest(c) && !isInvite(c))
+        .sort((a, b) => (b.last_at || '').localeCompare(a.last_at || '') || b.id - a.id);
 
       if (!sorted.length) {
         convListEl.appendChild(el('div', 'empty-note', 'No chats yet'));
@@ -486,11 +892,12 @@
       }
 
       sorted.forEach((c) => {
-        const item = el('div', 'item' + (c.id === currentConvId ? ' active' : ''));
-        item.appendChild(avatarEl(c));
+        const info = avatarOfConv(c, true);
+        const item = el('div', 'item' + (c.id === currentConvId ? ' active' : '') + (info.note ? ' has-note' : ''));
+        item.appendChild(avatarEl(info));
 
         const mid = el('div', 'mid');
-        mid.appendChild(el('div', 'name', c.title));
+        mid.appendChild(el('div', 'name', titleOf(c)));
         mid.appendChild(el('div', 'sub' + (isOnline(c) ? ' online' : ''), statusText(c)));
         item.appendChild(mid);
 
@@ -501,9 +908,18 @@
     }
 
     // ============ Open a conversation ============
+    function showEmpty() {
+      currentConvId = null;
+      messagesEl.innerHTML = '';
+      $('empty').classList.remove('hidden');
+      $('chatHeader').classList.add('hidden');
+      updateComposer();
+    }
+
     async function openConversation(id) {
-      currentConvId = id;
       const c = conversations.get(id);
+      if (!c) return;
+      currentConvId = id;
       c.unread = 0;
 
       messagesEl.innerHTML = '';
@@ -514,30 +930,95 @@
       $('empty').classList.add('hidden');
       $('chatHeader').classList.remove('hidden');
       updateHeader();
-      renderConvList();
+      updateComposer();
+      renderSidebar();
 
-      const res = await fetch(`/api/conversations/${id}/messages`);
-      const rows = await res.json();
-      if (currentConvId !== id) return;
+      const r = await api('GET', `/api/conversations/${id}/messages`);
+      if (currentConvId !== id || !r.ok) return;
 
-      rows.forEach((m) => messagesEl.appendChild(buildRow(m, false)));
+      c.other_read = r.data.other_read;
+      r.data.messages.forEach((m) => messagesEl.appendChild(buildRow(m, false)));
+      renderReceipts();
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      markRead();
+      if (!msgInput.disabled) msgInput.focus();
+    }
 
-      msgInput.disabled = false;
+    // What sits under the chat: normal input, a request bar, or a blocked notice
+    function updateComposer() {
+      const c = conversations.get(currentConvId);
+      const bar = $('requestBar'), note = $('composerNote');
+      bar.innerHTML = '';
+      bar.classList.remove('show');
+      note.textContent = '';
+      let canSend = !!c;
+
+      if (c && c.type === 'direct') {
+        const name = c.other.display_name;
+        if (isIncomingRequest(c)) {
+          canSend = false;
+          bar.appendChild(el('div', 'txt', `${name} wants to message you. They won\u2019t see that you\u2019ve read it until you accept.`));
+          const btns = el('div', 'btns');
+          const accept = el('button', 'mini', 'Accept');
+          accept.onclick = async () => {
+            const r = await api('POST', `/api/conversations/${c.id}/respond`, { action: 'accept' });
+            if (!r.ok) return toast(r.data.error || 'Could not accept');
+            upsertConv(r.data);
+            markRead();
+          };
+          const del = el('button', 'mini ghost', 'Delete');
+          del.onclick = async () => {
+            const yes = await modal({ title: 'Delete request?', message: `${name} won\u2019t be told. You can still message them later.`,
+                                      confirmText: 'Delete', danger: true });
+            if (!yes) return;
+            const r = await api('POST', `/api/conversations/${c.id}/respond`, { action: 'decline' });
+            if (r.ok) removeConv(c.id);
+          };
+          const block = el('button', 'mini ghost', 'Block');
+          block.onclick = async () => {
+            if (await confirmBlock(c.other)) { removeConv(c.id); }
+          };
+          btns.append(accept, del, block);
+          bar.appendChild(btns);
+        } else if (c.blocked_by_me) {
+          canSend = false;
+          bar.appendChild(el('div', 'txt', `You blocked ${name}.`));
+          const btns = el('div', 'btns');
+          const un = el('button', 'mini', 'Unblock');
+          un.onclick = async () => {
+            const r = await api('DELETE', `/api/blocks/${c.other.id}`);
+            if (r.ok) toast(`${name} unblocked`);
+          };
+          btns.appendChild(un);
+          bar.appendChild(btns);
+        } else if (c.status === 'pending') {
+          note.textContent = `Message request sent. ${name} needs to accept before you can send more.`;
+        }
+        if (!canSend) bar.classList.add('show');
+      }
+
+      $('inputBar').style.display = canSend ? 'flex' : 'none';
+      msgInput.disabled = !canSend;
       syncSend();
-      msgInput.focus();
     }
 
     // ============ Drawing a message ============
     function buildRow(m, animate) {
+      if (m.kind === 'system') return el('div', 'system', m.text);
+
       const c = conversations.get(m.conversation_id);
       const mine = m.user_id === myId;
       const row = el('div', 'row ' + (mine ? 'mine' : 'theirs') + (animate ? ' enter' : ''));
       row.dataset.id = m.id;
 
-      if (c && c.type === 'group' && !mine) row.appendChild(el('div', 'sender', m.username));
+      if (c && c.type === 'group' && !mine) {
+        const s = el('div', 'sender', m.username);
+        s.onclick = () => openProfile(m.user_id);
+        row.appendChild(s);
+      }
 
       if (m.deleted) {
+        row.classList.add('gone');
         row.appendChild(el('div', 'bubble deleted', 'This message was deleted'));
         return row;
       }
@@ -552,7 +1033,8 @@
         edit.onclick = async () => {
           const t = await modal({
             title: 'Edit message',
-            input: { value: m.text, placeholder: 'Message' },
+            message: 'Everyone in this chat will see the updated message.',
+            textarea: { value: m.text, placeholder: 'Message', maxLength: 2000 },
             confirmText: 'Save'
           });
           if (t && t.trim() && t.trim() !== m.text) socket.emit('edit message', { id: m.id, text: t });
@@ -572,13 +1054,39 @@
         actions.append(edit, del);
         meta.appendChild(actions);
       }
-      meta.appendChild(el('span', '', (m.edited_at ? 'edited · ' : '') + formatTime(m.created_at)));
+      meta.appendChild(el('span', '', (m.edited_at ? 'edited \u00b7 ' : '') + formatTime(m.created_at)));
       row.appendChild(meta);
       return row;
     }
 
     function scrollToBottom() {
       messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+    }
+
+    // "Seen" label under my latest message the other person has read (direct chats only)
+    function renderReceipts() {
+      messagesEl.querySelectorAll('.seen').forEach((e) => e.remove());
+      const c = conversations.get(currentConvId);
+      if (!c || c.type !== 'direct' || !c.other_read) return;
+      const read = [...messagesEl.querySelectorAll('.row.mine:not(.gone)')]
+        .filter((r) => Number(r.dataset.id) <= c.other_read);
+      const last = read[read.length - 1];
+      const meta = last && last.querySelector('.meta');
+      if (meta) meta.appendChild(el('span', 'seen', 'Seen'));
+    }
+
+    socket.on('read', ({ conversationId, upTo }) => {
+      const c = conversations.get(conversationId);
+      if (!c) return;
+      c.other_read = upTo;
+      if (conversationId === currentConvId) renderReceipts();
+    });
+
+    function markRead() {
+      const c = conversations.get(currentConvId);
+      if (!c || document.visibilityState !== 'visible' || isIncomingRequest(c)) return;
+      socket.emit('mark read', { conversationId: c.id });
+      if (c.unread) { c.unread = 0; renderSidebar(); }
     }
 
     // A message was edited or deleted -> redraw just that one
@@ -589,16 +1097,17 @@
       const fresh = buildRow(m, false);
       fresh.classList.add('updated');
       old.replaceWith(fresh);
+      renderReceipts();
     });
 
     // ============ Sending / receiving ============
     function syncSend() {
-      sendBtn.disabled = currentConvId === null || !msgInput.value.trim();
+      sendBtn.disabled = currentConvId === null || msgInput.disabled || !msgInput.value.trim();
     }
 
     function send() {
       const text = msgInput.value.trim();
-      if (!text || currentConvId === null) return;
+      if (!text || currentConvId === null || msgInput.disabled) return;
       socket.emit('chat message', { conversationId: currentConvId, text });
       msgInput.value = '';
       lastTypingSent = 0;
@@ -612,15 +1121,17 @@
       const c = conversations.get(m.conversation_id);
       if (!c) return;
       c.last_at = m.created_at;
+      const fromOther = m.user_id !== myId && m.kind !== 'system';
 
       if (m.conversation_id === currentConvId) {
         if (typers.has(m.username)) { clearTimeout(typers.get(m.username)); typers.delete(m.username); renderTyping(); }
         messagesEl.appendChild(buildRow(m, true));
         scrollToBottom();
-      } else if (m.user_id !== myId) {
+        if (fromOther) { document.visibilityState === 'visible' ? markRead() : c.unread++; }
+      } else if (fromOther) {
         c.unread++;
       }
-      renderConvList();
+      renderSidebar();
     });
 
     // ============ Typing indicator ============
@@ -650,7 +1161,7 @@
       typingEl.classList.add('show');
     }
 
-    // ============ Search people / start a direct chat ============
+    // ============ Search people ============
     let searchTimer;
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimer);
@@ -659,15 +1170,22 @@
         resultsEl.innerHTML = '';
         if (!q) return;
 
-        const res = await fetch('/api/users?q=' + encodeURIComponent(q));
-        const users = await res.json();
+        const r = await api('GET', '/api/users?q=' + encodeURIComponent(q));
+        const users = Array.isArray(r.data) ? r.data : [];
 
         users.forEach((u) => {
           const item = el('div', 'item');
-          const a = el('div', 'avatar', u.username[0].toUpperCase());
+          item.appendChild(userAvatar(u));
           const mid = el('div', 'mid');
-          mid.appendChild(el('div', 'name', u.username));
-          item.append(a, mid);
+          mid.appendChild(el('div', 'name', u.display_name));
+          mid.appendChild(el('div', 'sub', '@' + u.username));
+          item.appendChild(mid);
+
+          const info = el('button', 'info-btn', 'i');
+          info.title = 'View profile';
+          info.onclick = (e) => { e.stopPropagation(); openProfile(u.id); };
+          item.appendChild(info);
+
           item.onclick = () => startChat(u.id);
           resultsEl.appendChild(item);
         });
@@ -676,18 +1194,295 @@
     });
 
     async function startChat(userId) {
-      const res = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      const data = await res.json();
-      if (!res.ok) return toast(data.error || 'Could not start chat');
+      const r = await api('POST', '/api/conversations', { userId });
+      if (!r.ok) return toast(r.data.error || 'Could not start chat');
 
-      upsertConv(data);
+      upsertConv(r.data);
       searchInput.value = '';
       resultsEl.innerHTML = '';
-      openConversation(data.id);
+      openConversation(r.data.id);
+    }
+
+    // ============ Friends ============
+    async function loadFriends() {
+      const r = await api('GET', '/api/friends');
+      if (!r.ok) return;
+      const before = firstLoadDone ? friends.incoming.length : r.data.incoming.length;
+      friends = r.data;
+      if (friends.incoming.length > before) toast('New friend request');
+      firstLoadDone = true;
+      const b = $('friendBadge');
+      b.textContent = friends.incoming.length;
+      b.classList.toggle('show', friends.incoming.length > 0);
+    }
+    socket.on('friends changed', loadFriends);
+
+    async function friendAction(method, url, body, doneMsg) {
+      const r = await api(method, url, body);
+      if (!r.ok) { toast(r.data.error || 'Something went wrong'); return false; }
+      if (doneMsg) toast(doneMsg);
+      await loadFriends();
+      return true;
+    }
+
+    $('friendsBtn').onclick = async () => {
+      await loadFriends();
+      modal({
+        title: 'Friends',
+        noConfirm: true,
+        body: (close) => {
+          const box = el('div');
+          const reopen = () => { close(); setTimeout(() => $('friendsBtn').onclick(), 480); };
+
+          if (friends.incoming.length) {
+            box.appendChild(el('div', 'field-label', 'Requests'));
+            friends.incoming.forEach((u) => {
+              const btns = el('div', 'btns');
+              const yes = el('button', 'mini', 'Accept');
+              yes.onclick = async (e) => { e.stopPropagation();
+                if (await friendAction('POST', '/api/friends/respond', { userId: u.id, accept: true }, 'You\u2019re now friends')) reopen(); };
+              const no = el('button', 'mini ghost', 'Decline');
+              no.onclick = async (e) => { e.stopPropagation();
+                if (await friendAction('POST', '/api/friends/respond', { userId: u.id, accept: false })) reopen(); };
+              btns.append(yes, no);
+              box.appendChild(userRow(u, btns, () => { close(); openProfile(u.id); }));
+            });
+          }
+
+          if (friends.outgoing.length) {
+            box.appendChild(el('div', 'field-label', 'Sent'));
+            friends.outgoing.forEach((u) => {
+              const cancel = el('button', 'mini ghost', 'Cancel');
+              cancel.onclick = async (e) => { e.stopPropagation();
+                if (await friendAction('DELETE', `/api/friends/${u.id}`)) reopen(); };
+              box.appendChild(userRow(u, cancel, () => { close(); openProfile(u.id); }));
+            });
+          }
+
+          box.appendChild(el('div', 'field-label', `Friends (${friends.friends.length})`));
+          friends.friends.forEach((u) => box.appendChild(userRow(u, null, () => { close(); openProfile(u.id); })));
+          if (!friends.friends.length) {
+            box.appendChild(el('div', 'empty-note', 'No friends yet. Open someone\u2019s profile and tap Add friend.'));
+          }
+          return box;
+        }
+      });
+    };
+
+    // ============ Blocking ============
+    async function confirmBlock(u) {
+      const yes = await modal({
+        title: `Block ${u.display_name}?`,
+        message: 'They won\u2019t be able to message you or send friend requests, and they\u2019ll lose access to your profile details. You can unblock them any time from your profile.',
+        confirmText: 'Block',
+        danger: true
+      });
+      if (!yes) return false;
+      const r = await api('POST', '/api/blocks', { userId: u.id });
+      if (!r.ok) { toast(r.data.error || 'Could not block'); return false; }
+      toast(`${u.display_name} blocked`);
+      await loadFriends();
+      return true;
+    }
+
+    // ============ Profile preview (anyone) ============
+    async function openProfile(userId) {
+      if (userId === myId) return openMyProfile();
+      const r = await api('GET', `/api/users/${userId}`);
+      if (!r.ok) return toast('Could not load profile');
+      const { user, friend_state: state, blocked_by_me: blockedByMe } = r.data;
+
+      modal({
+        noConfirm: true,
+        body: (close) => {
+          const box = el('div', 'profile center');
+          box.appendChild(avatarEl({ url: user.avatar_url, name: user.display_name, note: activeNote(user) }, 'xl'));
+          box.appendChild(el('div', 'p-name', user.display_name));
+          box.appendChild(el('div', 'p-user', '@' + user.username));
+
+          if (user.bio) box.appendChild(el('div', 'p-bio', user.bio));
+          else if (user.bio_hidden) box.appendChild(el('div', 'p-bio muted', 'Bio is only visible to friends'));
+
+          const refresh = () => { close(); setTimeout(() => openProfile(userId), 480); };
+          const acts = el('div', 'p-actions');
+          const add = (label, cls, fn) => { const b = el('button', cls, label); b.onclick = fn; acts.appendChild(b); return b; };
+
+          if (state !== 'blocked' && !blockedByMe) {
+            add('Message', 'pill', () => { close(); startChat(user.id); });
+          }
+          if (state === 'none') {
+            add('Add friend', 'pill', async () => {
+              if (await friendAction('POST', '/api/friends/request', { userId: user.id }, 'Friend request sent')) refresh();
+            });
+          } else if (state === 'outgoing') {
+            add('Cancel request', 'pill', async () => {
+              if (await friendAction('DELETE', `/api/friends/${user.id}`)) refresh();
+            });
+          } else if (state === 'incoming') {
+            add('Accept request', 'pill', async () => {
+              if (await friendAction('POST', '/api/friends/respond', { userId: user.id, accept: true }, 'You\u2019re now friends')) refresh();
+            });
+            add('Decline', 'pill', async () => {
+              if (await friendAction('POST', '/api/friends/respond', { userId: user.id, accept: false })) refresh();
+            });
+          } else if (state === 'friends') {
+            add('Unfriend', 'pill', async () => {
+              const yes = await modal({ title: `Unfriend ${user.display_name}?`, confirmText: 'Unfriend', danger: true });
+              if (yes && await friendAction('DELETE', `/api/friends/${user.id}`, null, 'Removed from friends')) refresh();
+            });
+          }
+          box.appendChild(acts);
+
+          const blk = el('button', 'link-btn', blockedByMe ? 'Unblock' : 'Block');
+          blk.onclick = async () => {
+            if (blockedByMe) {
+              const rr = await api('DELETE', `/api/blocks/${user.id}`);
+              if (rr.ok) { toast(`${user.display_name} unblocked`); refresh(); }
+            } else if (await confirmBlock(user)) refresh();
+          };
+          box.appendChild(blk);
+          return box;
+        }
+      });
+    }
+
+    // ============ My profile + privacy ============
+    function openMyProfile() {
+      let nameField, bioField;
+
+      modal({
+        title: 'Your profile',
+        wide: true,
+        confirmText: 'Save profile',
+        cancelText: 'Close',
+        body: (close) => {
+          const box = el('div', 'profile');
+
+          // --- photo ---
+          const avWrap = el('div');
+          const drawAv = () => avWrap.replaceChildren(userAvatar(me, 'xl', true));
+          drawAv();
+          const row = el('div', 'av-row');
+          const btns = el('div', 'btns');
+          const change = el('button', 'pill', 'Change photo');
+          change.onclick = async () => {
+            const img = await pickImage();
+            if (!img) return;
+            const r = await api('PUT', '/api/profile/avatar', { image: img });
+            if (!r.ok) return toast(r.data.error || 'Could not update photo');
+            me = r.data; renderMe(); drawAv();
+          };
+          const remove = el('button', 'pill', 'Remove');
+          remove.onclick = async () => {
+            const r = await api('PUT', '/api/profile/avatar', { remove: true });
+            if (r.ok) { me = r.data; renderMe(); drawAv(); }
+          };
+          btns.append(change, remove);
+          row.append(avWrap, btns);
+          box.appendChild(row);
+
+          // --- name + bio ---
+          box.appendChild(el('div', 'field-label', 'Name'));
+          nameField = el('input', 'm-input');
+          nameField.value = me.display_name;
+          nameField.maxLength = 30;
+          nameField.placeholder = 'Your name';
+          box.appendChild(nameField);
+          box.appendChild(el('div', 'help', `Your username is @${me.username} and can\u2019t be changed.`));
+
+          box.appendChild(el('div', 'field-label', 'Bio'));
+          const bio = areaWithCounter(me.bio, 150, 'Tell people about yourself');
+          bioField = bio.field;
+          box.appendChild(bio.wrap);
+
+          // --- note ---
+          box.appendChild(el('div', 'section-title', 'Note'));
+          box.appendChild(el('div', 'help', 'A short note that floats over your photo for 24 hours. Only your friends can see it.'));
+          const note = el('input', 'm-input');
+          note.maxLength = 60;
+          note.placeholder = 'Share a thought...';
+          note.value = activeNote(me) || '';
+          box.appendChild(note);
+          const noteBtns = el('div', 'btns');
+          noteBtns.style.cssText = 'display:flex;gap:8px;margin-bottom:4px';
+          const share = el('button', 'pill', 'Share note');
+          share.onclick = async () => {
+            const r = await api('PUT', '/api/profile/note', { note: note.value });
+            if (!r.ok) return toast('Could not save note');
+            me = r.data; renderMe(); drawAv();
+            toast(note.value.trim() ? 'Note shared for 24 hours' : 'Note removed');
+          };
+          const clear = el('button', 'pill', 'Delete note');
+          clear.onclick = async () => {
+            const r = await api('PUT', '/api/profile/note', { note: '' });
+            if (r.ok) { me = r.data; note.value = ''; renderMe(); drawAv(); toast('Note removed'); }
+          };
+          noteBtns.append(share, clear);
+          box.appendChild(noteBtns);
+
+          // --- privacy ---
+          box.appendChild(el('div', 'section-title', 'Privacy'));
+          const save = async (patch) => {
+            const r = await api('PUT', '/api/settings', {
+              read_receipts: me.read_receipts, pfp_vis: me.pfp_vis, bio_vis: me.bio_vis, ...patch
+            });
+            if (r.ok) { me = r.data; renderMe(); toast('Saved'); }
+          };
+
+          const rr = el('div', 'set-row');
+          const rrText = el('div');
+          rrText.appendChild(el('div', 't', 'Read receipts'));
+          rrText.appendChild(el('div', 'd', 'If you turn this off, you won\u2019t send or see read receipts in one-to-one chats.'));
+          rr.append(rrText, switchEl(me.read_receipts, (on) => save({ read_receipts: on })));
+          box.appendChild(rr);
+
+          const pf = el('div', 'set-row');
+          const pfText = el('div');
+          pfText.appendChild(el('div', 't', 'Profile photo'));
+          pfText.appendChild(el('div', 'd', 'Who can see it'));
+          pf.append(pfText, segmented([['everyone', 'Everyone'], ['friends', 'Friends']], me.pfp_vis, (v) => save({ pfp_vis: v })));
+          box.appendChild(pf);
+
+          const bv = el('div', 'set-row');
+          const bvText = el('div');
+          bvText.appendChild(el('div', 't', 'Bio'));
+          bvText.appendChild(el('div', 'd', 'Who can see it'));
+          bv.append(bvText, segmented([['everyone', 'Everyone'], ['friends', 'Friends']], me.bio_vis, (v) => save({ bio_vis: v })));
+          box.appendChild(bv);
+
+          // --- blocked users ---
+          box.appendChild(el('div', 'section-title', 'Blocked users'));
+          const blockedBox = el('div');
+          box.appendChild(blockedBox);
+          (async () => {
+            const r = await api('GET', '/api/blocks');
+            const list = Array.isArray(r.data) ? r.data : [];
+            if (!list.length) return blockedBox.appendChild(el('div', 'help', 'You haven\u2019t blocked anyone.'));
+            list.forEach((u) => {
+              const row2 = el('div', 'u-row');
+              row2.style.cursor = 'default';
+              const mid = el('div', 'mid');
+              mid.appendChild(el('div', 'nm', u.display_name));
+              mid.appendChild(el('div', 'un', '@' + u.username));
+              const un = el('button', 'mini ghost', 'Unblock');
+              un.onclick = async () => {
+                const x = await api('DELETE', `/api/blocks/${u.id}`);
+                if (x.ok) { row2.remove(); toast(`${u.display_name} unblocked`); }
+              };
+              row2.append(mid, un);
+              blockedBox.appendChild(row2);
+            });
+          })();
+
+          return box;
+        },
+        getValue: () => ({ display_name: nameField.value, bio: bioField.value })
+      }).then(async (vals) => {
+        if (!vals) return;
+        const r = await api('PUT', '/api/profile', vals);
+        if (r.ok) { me = r.data; renderMe(); toast('Profile saved'); }
+        else toast(r.data.error || 'Could not save');
+      });
     }
 
     // ============ Groups ============
@@ -701,7 +1496,7 @@
 
       const result = await modal({
         title: 'New group',
-        message: 'Name your group and add some people.',
+        message: 'Name your group and invite some people. They join once they accept.',
         confirmText: 'Create',
         body,
         validate: () => !name.value.trim() ? 'Give the group a name'
@@ -710,42 +1505,117 @@
       });
       if (!result) return;
 
-      const res = await fetch('/api/groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result)
-      });
-      const data = await res.json();
-      if (!res.ok) return toast(data.error || 'Could not create group');
-
-      upsertConv(data);
-      openConversation(data.id);
+      const r = await api('POST', '/api/groups', result);
+      if (!r.ok) return toast(r.data.error || 'Could not create group');
+      upsertConv(r.data);
+      openConversation(r.data.id);
+      toast('Invites sent');
     };
 
     async function addPeople(c) {
-      const picker = createPicker(c.members.map((m) => m.id));
+      const exclude = [...(c.members || []), ...(c.invited || [])].map((m) => m.id);
+      const picker = createPicker(exclude);
       const ids = await modal({
-        title: 'Add people',
-        message: `Add people to ${c.title}.`,
-        confirmText: 'Add',
+        title: 'Invite people',
+        message: `They\u2019ll get an invite to ${c.name} and join once they accept.`,
+        confirmText: 'Invite',
         body: picker.el,
         validate: () => !picker.getIds().length ? 'Pick at least one person' : null,
         getValue: () => picker.getIds()
       });
       if (!ids) return;
 
-      const res = await fetch(`/api/groups/${c.id}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIds: ids })
-      });
-      const data = await res.json();
-      if (!res.ok) return toast(data.error || 'Could not add people');
-      upsertConv(data);
-      toast('People added');
+      const r = await api('POST', `/api/groups/${c.id}/members`, { userIds: ids });
+      if (!r.ok) return toast(r.data.error || 'Could not invite');
+      upsertConv(r.data);
+      toast('Invites sent');
     }
 
-    loadConversations();
+    function openGroupInfo(convId) {
+      const c = conversations.get(convId);
+      if (!c) return;
+      let nameField, aboutField;
+
+      modal({
+        title: 'Group info',
+        wide: true,
+        confirmText: 'Save changes',
+        cancelText: 'Close',
+        body: (close) => {
+          const box = el('div', 'profile');
+          const g = () => conversations.get(convId) || c;
+
+          const avWrap = el('div');
+          const drawAv = () => avWrap.replaceChildren(avatarEl({ url: g().avatar_url, name: g().name, group: true }, 'xl'));
+          drawAv();
+          const row = el('div', 'av-row');
+          const btns = el('div', 'btns');
+          const change = el('button', 'pill', 'Change photo');
+          change.onclick = async () => {
+            const img = await pickImage();
+            if (!img) return;
+            const r = await api('PUT', `/api/groups/${convId}/avatar`, { image: img });
+            if (!r.ok) return toast(r.data.error || 'Could not update photo');
+            upsertConv(r.data); drawAv();
+          };
+          const remove = el('button', 'pill', 'Remove');
+          remove.onclick = async () => {
+            const r = await api('PUT', `/api/groups/${convId}/avatar`, { remove: true });
+            if (r.ok) { upsertConv(r.data); drawAv(); }
+          };
+          btns.append(change, remove);
+          row.append(avWrap, btns);
+          box.appendChild(row);
+
+          box.appendChild(el('div', 'field-label', 'Group name'));
+          nameField = el('input', 'm-input');
+          nameField.value = c.name;
+          nameField.maxLength = 40;
+          box.appendChild(nameField);
+
+          box.appendChild(el('div', 'field-label', 'About'));
+          const about = areaWithCounter(c.about, 200, 'What is this group about?');
+          aboutField = about.field;
+          box.appendChild(about.wrap);
+
+          box.appendChild(el('div', 'section-title', `Members (${c.member_count})`));
+          (c.members || []).forEach((m) => {
+            const tag = m.id === myId ? el('span', 'tag', 'You') : (onlineUsers.has(m.id) ? el('span', 'tag', 'online') : null);
+            box.appendChild(userRow(m, tag, () => { if (m.id !== myId) { close(); openProfile(m.id); } else { close(); openMyProfile(); } }));
+          });
+          (c.invited || []).forEach((m) => {
+            box.appendChild(userRow(m, el('span', 'tag', 'Invited'), () => { close(); openProfile(m.id); }));
+          });
+
+          const acts = el('div', 'p-actions');
+          const invite = el('button', 'pill', 'Invite people');
+          invite.onclick = () => { close(); setTimeout(() => addPeople(g()), 480); };
+          const leave = el('button', 'pill danger', 'Leave group');
+          leave.onclick = async () => {
+            const yes = await modal({
+              title: 'Leave group?',
+              message: `You\u2019ll stop receiving messages from ${c.name}. Someone will need to invite you again to rejoin.`,
+              confirmText: 'Leave', danger: true
+            });
+            if (!yes) return;
+            const r = await api('POST', `/api/groups/${convId}/leave`);
+            if (r.ok) { close(); toast('You left the group'); }
+            else toast(r.data.error || 'Could not leave');
+          };
+          acts.append(invite, leave);
+          box.appendChild(acts);
+          return box;
+        },
+        validate: () => (!nameField.value.trim() ? 'Group name can\u2019t be empty' : null),
+        getValue: () => ({ name: nameField.value.trim(), about: aboutField.value.trim() })
+      }).then(async (vals) => {
+        if (!vals) return;
+        if (vals.name === c.name && vals.about === (c.about || '')) return;
+        const r = await api('PUT', `/api/groups/${convId}`, vals);
+        if (r.ok) { upsertConv(r.data); toast('Group updated'); }
+        else toast(r.data.error || 'Could not save');
+      });
+    }
   </script>
 </body>
 </html>
