@@ -1,105 +1,391 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: sans-serif; margin: 0; height: 100vh; }
-    #app { display: flex; height: 100vh; }
+    :root {
+      --ink: #0b0b0b; --paper: #fff; --soft: #f5f5f3; --beige: #efe7da; --beige-deep: #e3d7c3;
+      --muted: #8a8a85; --line: #e8e8e4; --red: #e5322d; --green: #2fbf71;
+      --ease: cubic-bezier(.22, 1, .36, 1);
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Poppins", "Segoe UI", sans-serif;
+      --serif: "Playfair Display", "New York", Georgia, serif;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; }
+    body { font-family: var(--sans); background: var(--paper); color: var(--ink);
+           -webkit-font-smoothing: antialiased; overflow: hidden; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+    input { font-family: inherit; color: inherit; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { background: var(--beige-deep); border-radius: 8px; }
 
-    #sidebar { width: 280px; border-right: 1px solid #ccc; padding: 10px;
-               display: flex; flex-direction: column; overflow-y: auto; }
-    #meBar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    #search { padding: 8px; width: 100%; }
-    #sidebar ul { list-style: none; padding: 0; margin: 5px 0; }
-    #sidebar li { padding: 10px; cursor: pointer; border-radius: 6px;
-                  display: flex; justify-content: space-between; align-items: center; }
-    #sidebar li:hover { background: #eee; }
-    #sidebar li.active { background: #dbeafe; }
-    #results li { background: #fffbe6; }
-    .badge { background: #e11d48; color: white; border-radius: 10px;
-             padding: 0 7px; font-size: 12px; }
-    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
-           background: #bbb; margin-right: 8px; }
-    .dot.online { background: #22c55e; }
-    h4 { margin: 15px 0 5px; color: #666; }
+    #app { display: flex; height: 100dvh; }
 
-    #main { flex: 1; display: flex; flex-direction: column; padding: 10px; min-width: 0; }
-    #chatHeader { padding: 10px; border-bottom: 1px solid #ccc; }
-    #titleName { font-weight: bold; }
-    #titleStatus { font-size: 12px; color: #888; margin-left: 8px; }
-    #titleStatus.online { color: #16a34a; }
-    #messages { flex: 1; list-style: none; padding: 10px; margin: 0; overflow-y: auto; }
-    #messages li { margin-bottom: 8px; padding: 8px 12px; border-radius: 10px;
-                   max-width: 70%; background: #f1f1f1; width: fit-content; }
-    #messages li.mine { background: #dcf8c6; margin-left: auto; }
-    #messages li.deleted { background: #fafafa; color: #999; font-style: italic;
-                           border: 1px dashed #ddd; }
-    .sender { font-size: 12px; color: #666; }
-    .body { word-wrap: break-word; }
-    .meta { font-size: 11px; color: #888; margin-top: 3px; display: flex; gap: 8px;
-            justify-content: flex-end; }
-    .actions { display: none; gap: 6px; }
-    .actions a { color: #2563eb; cursor: pointer; }
-    #messages li:hover .actions { display: flex; }
+    /* ---------- Sidebar ---------- */
+    #sidebar { width: 330px; flex: none; border-right: 1px solid var(--line); display: flex;
+               flex-direction: column; background: #fff; }
+    .side-head { padding: 28px 22px 10px; display: flex; justify-content: space-between; align-items: center; }
+    .brand { font-family: var(--serif); font-weight: 800; font-size: 34px; letter-spacing: -.8px; }
+    .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: #fff;
+                display: grid; place-items: center; font-size: 22px; line-height: 1;
+                transition: transform .5s var(--ease); }
+    .icon-btn:hover { transform: scale(1.1) rotate(90deg); }
+    .icon-btn:active { transform: scale(.92); }
 
-    #typing { height: 20px; font-size: 13px; color: #666; font-style: italic; padding-left: 10px; }
-    #inputBar { display: flex; gap: 6px; }
-    #msg { flex: 1; padding: 10px; }
-    #send { padding: 10px 16px; }
+    #search { margin: 10px 18px 4px; padding: 12px 20px; border-radius: 999px; border: 1px solid transparent;
+              background: var(--soft); font-size: 14.5px; outline: none;
+              transition: background .4s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease); }
+    #search:focus { background: #fff; border-color: var(--ink); box-shadow: 0 0 0 4px rgba(0,0,0,.05); }
+
+    .label { padding: 16px 24px 6px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+    .list { padding: 4px 10px; }
+    #convList { flex: 1; overflow-y: auto; }
+
+    .item { display: flex; align-items: center; gap: 13px; padding: 10px 12px; border-radius: 20px; cursor: pointer;
+            transition: background .45s var(--ease), transform .45s var(--ease); animation: fade .6s var(--ease); }
+    .item:hover { background: var(--soft); transform: translateX(4px); }
+    .item.active { background: var(--beige); transform: none; }
+    .item .mid { flex: 1; min-width: 0; }
+    .item .name { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item .sub { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+    .item .sub.online { color: #1f9d57; }
+    .empty-note { padding: 10px 14px; color: var(--muted); font-size: 14px; }
+
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--beige); color: var(--ink);
+              display: grid; place-items: center; font-family: var(--serif); font-weight: 700; font-size: 19px;
+              position: relative; flex: none; }
+    .item.active .avatar { background: #fff; }
+    .avatar.group { background: var(--ink); color: #fff; }
+    .avatar .pip { position: absolute; right: -1px; bottom: -1px; width: 13px; height: 13px; border-radius: 50%;
+                   background: var(--green); border: 2.5px solid #fff; transform: scale(0);
+                   transition: transform .5s var(--ease); }
+    .avatar.on .pip { transform: scale(1); }
+
+    .badge { background: var(--ink); color: #fff; border-radius: 999px; min-width: 22px; height: 22px;
+             display: grid; place-items: center; font-size: 12px; font-weight: 600; padding: 0 7px;
+             animation: pop .5s var(--ease); }
+
+    #meBar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); }
+    #meBar .who { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pill { padding: 9px 18px; border-radius: 999px; background: var(--beige); font-weight: 500; font-size: 13.5px;
+            transition: background .4s var(--ease), color .4s var(--ease), transform .4s var(--ease); }
+    .pill:hover { background: var(--ink); color: #fff; transform: translateY(-1px); }
+    .pill:active { transform: scale(.95); }
+
+    /* ---------- Main ---------- */
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+    #chatHeader { display: flex; align-items: center; gap: 14px; padding: 18px 28px; min-height: 86px;
+                  border-bottom: 1px solid var(--line); transition: opacity .6s var(--ease); }
+    #chatHeader.hidden { opacity: 0; pointer-events: none; }
+    .t-name { font-family: var(--serif); font-weight: 700; font-size: 23px; letter-spacing: -.3px; }
+    .t-status { font-size: 12.5px; color: var(--muted); transition: color .5s var(--ease); }
+    .t-status.online { color: #1f9d57; }
+    #headerActions { margin-left: auto; }
+
+    #messages { flex: 1; overflow-y: auto; padding: 24px 28px 10px; display: flex; flex-direction: column; gap: 2px; }
+
+    .row { display: flex; flex-direction: column; max-width: 68%; }
+    .row.mine { align-items: flex-end; align-self: flex-end; transform-origin: bottom right; }
+    .row.theirs { align-items: flex-start; align-self: flex-start; transform-origin: bottom left; }
+    .row.enter { animation: pop .65s var(--ease); }
+    .row.updated .bubble { animation: bump .6s var(--ease); }
+
+    .sender { font-size: 12px; font-weight: 600; color: var(--muted); margin: 8px 0 3px 14px; }
+    .bubble { padding: 11px 18px; border-radius: 22px; font-size: 15px; line-height: 1.45;
+              overflow-wrap: anywhere; }
+    .mine .bubble { background: var(--ink); color: #fff; border-bottom-right-radius: 7px; }
+    .theirs .bubble { background: var(--beige); border-bottom-left-radius: 7px; }
+    .bubble.deleted { background: transparent !important; color: var(--muted) !important; font-style: italic;
+                      border: 1px dashed #cfcfc8; }
+
+    .meta { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--muted);
+            margin: 4px 8px 8px; height: 16px; }
+    .actions { display: flex; gap: 10px; opacity: 0; transform: translateY(-3px); pointer-events: none;
+               transition: opacity .45s var(--ease), transform .45s var(--ease); }
+    .row:hover .actions { opacity: 1; transform: none; pointer-events: auto; }
+    .actions a { cursor: pointer; font-weight: 600; color: var(--ink); transition: color .3s; }
+    .actions a.del:hover { color: var(--red); }
+    .actions a:hover { text-decoration: underline; }
+
+    /* typing indicator */
+    #typing { height: 38px; padding: 0 28px; display: flex; align-items: center; gap: 10px; opacity: 0;
+              transform: translateY(8px); transition: opacity .5s var(--ease), transform .5s var(--ease); }
+    #typing.show { opacity: 1; transform: none; }
+    .dots { background: var(--beige); border-radius: 18px; padding: 10px 14px; display: flex; gap: 5px; }
+    .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); display: block;
+              animation: dance 1.3s ease-in-out infinite; }
+    .dots i:nth-child(2) { animation-delay: .16s; }
+    .dots i:nth-child(3) { animation-delay: .32s; }
+    #typingText { font-size: 12.5px; color: var(--muted); }
+
+    #inputBar { display: flex; gap: 10px; padding: 6px 24px 24px; align-items: center; }
+    #msg { flex: 1; padding: 15px 24px; border-radius: 999px; border: 1px solid var(--line); background: var(--soft);
+           font-size: 15px; outline: none;
+           transition: background .4s var(--ease), border-color .4s var(--ease), box-shadow .4s var(--ease); }
+    #msg:focus { background: #fff; border-color: var(--ink); box-shadow: 0 0 0 4px rgba(0,0,0,.05); }
+    #msg:disabled { opacity: .5; }
+    #send { width: 50px; height: 50px; border-radius: 50%; background: var(--ink); color: #fff; display: grid;
+            place-items: center; transition: transform .45s var(--ease), opacity .45s var(--ease); }
+    #send:hover:not(:disabled) { transform: scale(1.08); }
+    #send:active:not(:disabled) { transform: scale(.9); }
+    #send:disabled { opacity: .2; cursor: default; }
+
+    #empty { position: absolute; inset: 0; background: #fff; display: grid; place-items: center; text-align: center;
+             transition: opacity .7s var(--ease); z-index: 2; }
+    #empty.hidden { opacity: 0; pointer-events: none; }
+    #empty h1 { font-family: var(--serif); font-weight: 800; font-size: 54px; letter-spacing: -1.5px; }
+    #empty p { color: var(--muted); margin-top: 10px; }
+
+    /* ---------- Modal + toast ---------- */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(10px);
+               -webkit-backdrop-filter: blur(10px); display: grid; place-items: center; opacity: 0;
+               transition: opacity .4s var(--ease); z-index: 50; }
+    .overlay.show { opacity: 1; }
+    .modal { width: min(420px, calc(100vw - 40px)); background: #fff; border-radius: 30px; padding: 30px;
+             transform: scale(.88) translateY(24px); transition: transform .6s var(--ease);
+             box-shadow: 0 30px 80px rgba(0,0,0,.25); }
+    .overlay.show .modal { transform: none; }
+    .modal h3 { font-family: var(--serif); font-weight: 800; font-size: 28px; letter-spacing: -.5px; margin-bottom: 8px; }
+    .modal p { color: #666; font-size: 14.5px; line-height: 1.5; margin-bottom: 18px; }
+    .m-input { width: 100%; padding: 14px 20px; border-radius: 18px; border: 1px solid var(--line);
+               background: var(--soft); font-size: 15px; outline: none; margin-bottom: 12px;
+               transition: background .4s var(--ease), border-color .4s var(--ease); }
+    .m-input:focus { background: #fff; border-color: var(--ink); }
+    .m-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn { flex: 1; padding: 14px; border-radius: 999px; font-weight: 600; font-size: 15px;
+           transition: transform .45s var(--ease), box-shadow .45s var(--ease), background .3s; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: scale(.96); }
+    .btn.ghost { background: var(--beige); }
+    .btn.primary { background: var(--ink); color: #fff; }
+    .btn.primary:hover { box-shadow: 0 12px 26px rgba(0,0,0,.25); }
+    .btn.danger { background: var(--red); color: #fff; }
+    .btn.danger:hover { box-shadow: 0 12px 26px rgba(229,50,45,.4); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .chip { background: var(--ink); color: #fff; border-radius: 999px; padding: 6px 13px; font-size: 13px;
+            cursor: pointer; animation: pop .5s var(--ease); transition: background .3s; }
+    .chip:hover { background: var(--red); }
+    .plist { max-height: 170px; overflow-y: auto; }
+    .pitem { padding: 10px 14px; border-radius: 14px; cursor: pointer; font-size: 14.5px;
+             transition: background .35s var(--ease), transform .35s var(--ease); }
+    .pitem:hover { background: var(--beige); transform: translateX(3px); }
+
+    #toast { position: fixed; left: 50%; bottom: 36px; transform: translate(-50%, 30px); background: var(--ink);
+             color: #fff; padding: 13px 24px; border-radius: 999px; font-size: 14px; opacity: 0;
+             pointer-events: none; transition: opacity .5s var(--ease), transform .6s var(--ease); z-index: 100; }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ---------- Animations ---------- */
+    @keyframes pop { 0% { opacity: 0; transform: translateY(18px) scale(.88); } 100% { opacity: 1; transform: none; } }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes bump { 50% { transform: scale(1.05); } }
+    @keyframes dance { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-6px); opacity: 1; } }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="sidebar">
-      <div id="meBar">
-        <span id="who"></span>
-        <button id="logout">Logout</button>
+      <div class="side-head">
+        <div class="brand">Chats</div>
+        <button class="icon-btn" id="newGroup" title="New group">+</button>
       </div>
 
-      <input id="search" placeholder="Search users..." autocomplete="off" />
-      <ul id="results"></ul>
+      <input id="search" placeholder="Search people..." autocomplete="off" />
+      <div class="list" id="results"></div>
 
-      <h4>Chats</h4>
-      <ul id="convList"></ul>
+      <div class="label">Messages</div>
+      <div class="list" id="convList"></div>
+
+      <div id="meBar">
+        <div class="avatar" id="meAvatar"></div>
+        <span class="who" id="who"></span>
+        <button class="pill" id="logout">Log out</button>
+      </div>
     </div>
 
     <div id="main">
-      <div id="chatHeader">
-        <span id="titleName">Select a chat or search for a user</span>
-        <span id="titleStatus"></span>
+      <div id="empty">
+        <div>
+          <h1>Say something.</h1>
+          <p>Search for a person, or start a group with the + button.</p>
+        </div>
       </div>
-      <ul id="messages"></ul>
-      <div id="typing"></div>
+
+      <div id="chatHeader" class="hidden">
+        <div id="hAvatar"></div>
+        <div>
+          <div class="t-name" id="titleName"></div>
+          <div class="t-status" id="titleStatus"></div>
+        </div>
+        <div id="headerActions"></div>
+      </div>
+
+      <div id="messages"></div>
+
+      <div id="typing">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <span id="typingText"></span>
+      </div>
+
       <div id="inputBar">
-        <input id="msg" placeholder="Type a message..." autocomplete="off" disabled />
-        <button id="send" disabled>Send</button>
+        <input id="msg" placeholder="Message" autocomplete="off" disabled />
+        <button id="send" disabled aria-label="Send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+        </button>
       </div>
     </div>
   </div>
 
+  <div id="toast"></div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    const $ = (id) => document.getElementById(id);
     const socket = io();
 
-    const messagesEl = document.getElementById('messages');
-    const msgInput = document.getElementById('msg');
-    const sendBtn = document.getElementById('send');
-    const titleName = document.getElementById('titleName');
-    const titleStatus = document.getElementById('titleStatus');
-    const typingEl = document.getElementById('typing');
-    const convListEl = document.getElementById('convList');
-    const resultsEl = document.getElementById('results');
-    const searchInput = document.getElementById('search');
+    const messagesEl = $('messages'), msgInput = $('msg'), sendBtn = $('send');
+    const convListEl = $('convList'), resultsEl = $('results'), searchInput = $('search');
+    const typingEl = $('typing'), typingText = $('typingText');
 
-    let myName = null;
-    let currentConvId = null;
-    const conversations = new Map();  // id -> { id, other_id, other_username, unread }
-    const onlineUsers = new Set();    // ids of users who are online right now
+    let myId = null, myName = null, currentConvId = null;
+    const conversations = new Map(); // id -> conversation view (+ unread)
+    const onlineUsers = new Set();
+    const typers = new Map();        // username -> timeout (people typing in the open chat)
 
-    // ---------- Time (stored as UTC in the database, shown in IST) ----------
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    // ============ Custom alert / confirm / prompt ============
+    let toastTimer;
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    // Returns a Promise:
+    //  - confirm box     -> true, or null if cancelled
+    //  - with `input`    -> the typed string, or null if cancelled
+    //  - with getValue   -> whatever getValue() returns, or null if cancelled
+    function modal(opts) {
+      return new Promise((resolve) => {
+        const overlay = el('div', 'overlay');
+        const card = el('div', 'modal');
+        card.appendChild(el('h3', '', opts.title));
+        if (opts.message) card.appendChild(el('p', '', opts.message));
+
+        let inputEl = null;
+        if (opts.input) {
+          inputEl = el('input', 'm-input');
+          inputEl.value = opts.input.value || '';
+          inputEl.placeholder = opts.input.placeholder || '';
+          inputEl.maxLength = opts.input.maxLength || 2000;
+          card.appendChild(inputEl);
+        }
+        if (opts.body) card.appendChild(opts.body);
+
+        const actions = el('div', 'm-actions');
+        const cancel = el('button', 'btn ghost', opts.cancelText || 'Cancel');
+        const ok = el('button', 'btn ' + (opts.danger ? 'danger' : 'primary'), opts.confirmText || 'OK');
+        actions.append(cancel, ok);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('show'));
+
+        function close(value) {
+          document.removeEventListener('keydown', onKey);
+          overlay.classList.remove('show');
+          setTimeout(() => overlay.remove(), 450);
+          resolve(value);
+        }
+        function confirmIt() {
+          if (opts.validate) {
+            const err = opts.validate();
+            if (err) return toast(err);
+          }
+          if (opts.getValue) close(opts.getValue());
+          else if (inputEl) close(inputEl.value);
+          else close(true);
+        }
+        function onKey(e) {
+          if (e.key === 'Escape') close(null);
+          if (e.key === 'Enter' && (inputEl && document.activeElement === inputEl)) confirmIt();
+        }
+
+        ok.onclick = confirmIt;
+        cancel.onclick = () => close(null);
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
+        document.addEventListener('keydown', onKey);
+
+        const first = inputEl || (opts.body && opts.body.querySelector('input'));
+        if (first) setTimeout(() => first.focus(), 250);
+      });
+    }
+
+    // "Search people, click to add as chips" widget
+    function createPicker(excludeIds) {
+      const wrap = el('div');
+      const chips = el('div', 'chips');
+      const input = el('input', 'm-input');
+      input.placeholder = 'Search people...';
+      const list = el('div', 'plist');
+      const selected = new Map(); // id -> username
+      let timer;
+
+      function renderChips() {
+        chips.innerHTML = '';
+        selected.forEach((name, id) => {
+          const chip = el('span', 'chip', name + '  ×');
+          chip.onclick = () => { selected.delete(id); renderChips(); };
+          chips.appendChild(chip);
+        });
+        chips.style.marginBottom = selected.size ? '12px' : '0';
+      }
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+          const q = input.value.trim();
+          list.innerHTML = '';
+          if (!q) return;
+          const res = await fetch('/api/users?q=' + encodeURIComponent(q));
+          const users = (await res.json()).filter((u) => !selected.has(u.id) && !excludeIds.includes(u.id));
+          users.forEach((u) => {
+            const row = el('div', 'pitem', u.username);
+            row.onclick = () => {
+              selected.set(u.id, u.username);
+              renderChips();
+              row.remove();
+            };
+            list.appendChild(row);
+          });
+          if (!users.length) list.appendChild(el('div', 'empty-note', 'No one found'));
+        }, 250);
+      });
+
+      wrap.append(chips, input, list);
+      return { el: wrap, getIds: () => [...selected.keys()] };
+    }
+
+    // ============ Time (stored as UTC, shown in IST) ============
     function formatTime(sqlDate) {
-      const d = new Date(sqlDate.replace(' ', 'T') + 'Z'); // mark it as UTC
+      const d = new Date(sqlDate.replace(' ', 'T') + 'Z');
       const tz = { timeZone: 'Asia/Kolkata' };
       const time = d.toLocaleTimeString('en-IN', { ...tz, hour: '2-digit', minute: '2-digit', hour12: true });
       const dayFmt = { ...tz, day: '2-digit', month: 'short' };
@@ -108,20 +394,22 @@
       return day === today ? time : `${day}, ${time}`;
     }
 
-    // ---------- Connection ----------
+    // ============ Connection ============
     socket.on('connect_error', () => { window.location.href = '/login.html'; });
 
     socket.on('me', (data) => {
+      myId = data.id;
       myName = data.username;
-      document.getElementById('who').textContent = myName;
+      $('who').textContent = myName;
+      $('meAvatar').textContent = myName[0].toUpperCase();
     });
 
-    document.getElementById('logout').onclick = async () => {
+    $('logout').onclick = async () => {
       await fetch('/logout', { method: 'POST' });
       window.location.href = '/login.html';
     };
 
-    // ---------- Online status ----------
+    // ============ Online status ============
     socket.on('online users', (ids) => {
       onlineUsers.clear();
       ids.forEach((id) => onlineUsers.add(id));
@@ -130,69 +418,101 @@
     });
 
     socket.on('presence', ({ userId, online }) => {
-      if (online) onlineUsers.add(userId);
-      else onlineUsers.delete(userId);
+      if (online) onlineUsers.add(userId); else onlineUsers.delete(userId);
       renderConvList();
       updateHeader();
     });
 
+    function isOnline(c) { return c.type === 'direct' && onlineUsers.has(c.other_id); }
+
+    function statusText(c) {
+      if (c.type === 'direct') return isOnline(c) ? 'online' : 'offline';
+      const on = c.members.filter((m) => onlineUsers.has(m.id)).length;
+      return `${c.members.length} members · ${on} online`;
+    }
+
+    function avatarEl(c) {
+      const a = el('div', 'avatar' + (c.type === 'group' ? ' group' : '') + (isOnline(c) ? ' on' : ''));
+      a.textContent = (c.title || '?')[0].toUpperCase();
+      if (c.type === 'direct') a.appendChild(el('span', 'pip'));
+      return a;
+    }
+
     function updateHeader() {
       const c = conversations.get(currentConvId);
       if (!c) return;
-      const online = onlineUsers.has(c.other_id);
-      titleName.textContent = c.other_username;
-      titleStatus.textContent = online ? 'online' : 'offline';
-      titleStatus.className = online ? 'online' : '';
-    }
+      $('hAvatar').replaceChildren(avatarEl(c));
+      $('titleName').textContent = c.title;
+      const st = $('titleStatus');
+      st.textContent = statusText(c);
+      st.className = 't-status' + (isOnline(c) ? ' online' : '');
 
-    // ---------- Sidebar: conversation list ----------
-    async function loadConversations() {
-      const res = await fetch('/api/conversations');
-      if (res.status === 401) return (window.location.href = '/login.html');
-      const rows = await res.json();
-      rows.forEach((c) => conversations.set(c.id, { ...c, unread: 0 }));
-      renderConvList();
-    }
-
-    function renderConvList() {
-      convListEl.innerHTML = '';
-      for (const c of conversations.values()) {
-        const li = document.createElement('li');
-        if (c.id === currentConvId) li.classList.add('active');
-
-        const left = document.createElement('span');
-        const dot = document.createElement('span');
-        dot.className = 'dot' + (onlineUsers.has(c.other_id) ? ' online' : '');
-        const name = document.createElement('span');
-        name.textContent = c.other_username;
-        left.appendChild(dot);
-        left.appendChild(name);
-        li.appendChild(left);
-
-        if (c.unread > 0) {
-          const badge = document.createElement('span');
-          badge.className = 'badge';
-          badge.textContent = c.unread;
-          li.appendChild(badge);
-        }
-
-        li.onclick = () => openConversation(c.id);
-        convListEl.appendChild(li);
+      const actions = $('headerActions');
+      actions.innerHTML = '';
+      if (c.type === 'group') {
+        const b = el('button', 'pill', 'Add people');
+        b.onclick = () => addPeople(c);
+        actions.appendChild(b);
       }
     }
 
-    socket.on('new conversation', (c) => {
-      conversations.set(c.id, { ...c, unread: 0 });
+    // ============ Sidebar: conversation list ============
+    async function loadConversations() {
+      const res = await fetch('/api/conversations');
+      if (res.status === 401) return (window.location.href = '/login.html');
+      (await res.json()).forEach((c) => conversations.set(c.id, { ...c, unread: 0 }));
       renderConvList();
-    });
+    }
 
-    // ---------- Open a conversation ----------
+    function upsertConv(v) {
+      const old = conversations.get(v.id);
+      conversations.set(v.id, { ...v, unread: old ? old.unread : 0 });
+      renderConvList();
+      if (v.id === currentConvId) updateHeader();
+    }
+
+    socket.on('new conversation', upsertConv);
+    socket.on('conversation updated', upsertConv);
+
+    function renderConvList() {
+      convListEl.innerHTML = '';
+      const sorted = [...conversations.values()].sort(
+        (a, b) => (b.last_at || '').localeCompare(a.last_at || '') || b.id - a.id
+      );
+
+      if (!sorted.length) {
+        convListEl.appendChild(el('div', 'empty-note', 'No chats yet'));
+        return;
+      }
+
+      sorted.forEach((c) => {
+        const item = el('div', 'item' + (c.id === currentConvId ? ' active' : ''));
+        item.appendChild(avatarEl(c));
+
+        const mid = el('div', 'mid');
+        mid.appendChild(el('div', 'name', c.title));
+        mid.appendChild(el('div', 'sub' + (isOnline(c) ? ' online' : ''), statusText(c)));
+        item.appendChild(mid);
+
+        if (c.unread > 0) item.appendChild(el('span', 'badge', c.unread));
+        item.onclick = () => openConversation(c.id);
+        convListEl.appendChild(item);
+      });
+    }
+
+    // ============ Open a conversation ============
     async function openConversation(id) {
       currentConvId = id;
       const c = conversations.get(id);
       c.unread = 0;
+
       messagesEl.innerHTML = '';
-      typingEl.textContent = '';
+      typers.forEach((t) => clearTimeout(t));
+      typers.clear();
+      renderTyping();
+
+      $('empty').classList.add('hidden');
+      $('chatHeader').classList.remove('hidden');
       updateHeader();
       renderConvList();
 
@@ -200,113 +520,117 @@
       const rows = await res.json();
       if (currentConvId !== id) return;
 
-      rows.forEach(addMessage);
+      rows.forEach((m) => messagesEl.appendChild(buildRow(m, false)));
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
       msgInput.disabled = false;
-      sendBtn.disabled = false;
+      syncSend();
       msgInput.focus();
     }
 
-    // ---------- Drawing a message ----------
-    function buildMessage(m) {
-      const li = document.createElement('li');
-      li.dataset.id = m.id;
-      const mine = m.username === myName;
-      if (mine) li.classList.add('mine');
+    // ============ Drawing a message ============
+    function buildRow(m, animate) {
+      const c = conversations.get(m.conversation_id);
+      const mine = m.user_id === myId;
+      const row = el('div', 'row ' + (mine ? 'mine' : 'theirs') + (animate ? ' enter' : ''));
+      row.dataset.id = m.id;
+
+      if (c && c.type === 'group' && !mine) row.appendChild(el('div', 'sender', m.username));
 
       if (m.deleted) {
-        li.classList.add('deleted');
-        li.textContent = 'This message was deleted';
-        return li;
+        row.appendChild(el('div', 'bubble deleted', 'This message was deleted'));
+        return row;
       }
 
-      const sender = document.createElement('div');
-      sender.className = 'sender';
-      sender.textContent = m.username;
+      row.appendChild(el('div', 'bubble', m.text));
 
-      const body = document.createElement('div');
-      body.className = 'body';
-      body.textContent = m.text;
-
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-
+      const meta = el('div', 'meta');
       if (mine) {
-        const actions = document.createElement('span');
-        actions.className = 'actions';
+        const actions = el('span', 'actions');
 
-        const edit = document.createElement('a');
-        edit.textContent = 'Edit';
-        edit.onclick = () => {
-          const newText = prompt('Edit message:', m.text);
-          if (newText && newText.trim() && newText.trim() !== m.text) {
-            socket.emit('edit message', { id: m.id, text: newText });
-          }
+        const edit = el('a', '', 'Edit');
+        edit.onclick = async () => {
+          const t = await modal({
+            title: 'Edit message',
+            input: { value: m.text, placeholder: 'Message' },
+            confirmText: 'Save'
+          });
+          if (t && t.trim() && t.trim() !== m.text) socket.emit('edit message', { id: m.id, text: t });
         };
 
-        const del = document.createElement('a');
-        del.textContent = 'Delete';
-        del.onclick = () => {
-          if (confirm('Delete this message?')) socket.emit('delete message', { id: m.id });
+        const del = el('a', 'del', 'Delete');
+        del.onclick = async () => {
+          const yes = await modal({
+            title: 'Delete message?',
+            message: 'This will remove it for everyone in the chat. This can\u2019t be undone.',
+            confirmText: 'Delete',
+            danger: true
+          });
+          if (yes) socket.emit('delete message', { id: m.id });
         };
 
-        actions.appendChild(edit);
-        actions.appendChild(del);
+        actions.append(edit, del);
         meta.appendChild(actions);
       }
-
-      const time = document.createElement('span');
-      time.textContent = (m.edited_at ? 'edited · ' : '') + formatTime(m.created_at);
-      meta.appendChild(time);
-
-      li.appendChild(sender);
-      li.appendChild(body);
-      li.appendChild(meta);
-      return li;
+      meta.appendChild(el('span', '', (m.edited_at ? 'edited · ' : '') + formatTime(m.created_at)));
+      row.appendChild(meta);
+      return row;
     }
 
-    function addMessage(m) {
-      messagesEl.appendChild(buildMessage(m));
+    function scrollToBottom() {
+      messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
     }
 
-    // An existing message was edited or deleted -> redraw just that one
+    // A message was edited or deleted -> redraw just that one
     socket.on('message updated', (m) => {
       if (m.conversation_id !== currentConvId) return;
       const old = messagesEl.querySelector(`[data-id="${m.id}"]`);
-      if (old) old.replaceWith(buildMessage(m));
+      if (!old) return;
+      const fresh = buildRow(m, false);
+      fresh.classList.add('updated');
+      old.replaceWith(fresh);
     });
 
-    // ---------- Sending / receiving ----------
+    // ============ Sending / receiving ============
+    function syncSend() {
+      sendBtn.disabled = currentConvId === null || !msgInput.value.trim();
+    }
+
     function send() {
       const text = msgInput.value.trim();
       if (!text || currentConvId === null) return;
       socket.emit('chat message', { conversationId: currentConvId, text });
       msgInput.value = '';
+      lastTypingSent = 0;
+      syncSend();
     }
 
     sendBtn.onclick = send;
     msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
 
     socket.on('chat message', (m) => {
+      const c = conversations.get(m.conversation_id);
+      if (!c) return;
+      c.last_at = m.created_at;
+
       if (m.conversation_id === currentConvId) {
-        typingEl.textContent = '';
-        addMessage(m);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      } else {
-        const c = conversations.get(m.conversation_id);
-        if (c) { c.unread++; renderConvList(); }
+        if (typers.has(m.username)) { clearTimeout(typers.get(m.username)); typers.delete(m.username); renderTyping(); }
+        messagesEl.appendChild(buildRow(m, true));
+        scrollToBottom();
+      } else if (m.user_id !== myId) {
+        c.unread++;
       }
+      renderConvList();
     });
 
-    // ---------- Typing indicator ----------
+    // ============ Typing indicator ============
     let lastTypingSent = 0;
-    let typingTimer;
 
     msgInput.addEventListener('input', () => {
+      syncSend();
       if (currentConvId === null) return;
       const now = Date.now();
-      if (now - lastTypingSent > 2000) { // at most once every 2 seconds
+      if (now - lastTypingSent > 2000) {
         socket.emit('typing', { conversationId: currentConvId });
         lastTypingSent = now;
       }
@@ -314,12 +638,19 @@
 
     socket.on('typing', ({ conversationId, username }) => {
       if (conversationId !== currentConvId) return;
-      typingEl.textContent = `${username} is typing...`;
-      clearTimeout(typingTimer);
-      typingTimer = setTimeout(() => { typingEl.textContent = ''; }, 3000);
+      clearTimeout(typers.get(username));
+      typers.set(username, setTimeout(() => { typers.delete(username); renderTyping(); }, 3000));
+      renderTyping();
     });
 
-    // ---------- Search users ----------
+    function renderTyping() {
+      const names = [...typers.keys()];
+      if (!names.length) return typingEl.classList.remove('show');
+      typingText.textContent = names.length === 1 ? `${names[0]} is typing` : `${names.join(', ')} are typing`;
+      typingEl.classList.add('show');
+    }
+
+    // ============ Search people / start a direct chat ============
     let searchTimer;
     searchInput.addEventListener('input', () => {
       clearTimeout(searchTimer);
@@ -332,17 +663,15 @@
         const users = await res.json();
 
         users.forEach((u) => {
-          const li = document.createElement('li');
-          li.textContent = u.username;
-          li.onclick = () => startChat(u.id);
-          resultsEl.appendChild(li);
+          const item = el('div', 'item');
+          const a = el('div', 'avatar', u.username[0].toUpperCase());
+          const mid = el('div', 'mid');
+          mid.appendChild(el('div', 'name', u.username));
+          item.append(a, mid);
+          item.onclick = () => startChat(u.id);
+          resultsEl.appendChild(item);
         });
-
-        if (users.length === 0) {
-          const li = document.createElement('li');
-          li.textContent = 'No users found';
-          resultsEl.appendChild(li);
-        }
+        if (!users.length) resultsEl.appendChild(el('div', 'empty-note', 'No users found'));
       }, 250);
     });
 
@@ -352,12 +681,68 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
       });
-      const c = await res.json();
-      if (!conversations.has(c.id)) conversations.set(c.id, { ...c, unread: 0 });
+      const data = await res.json();
+      if (!res.ok) return toast(data.error || 'Could not start chat');
 
+      upsertConv(data);
       searchInput.value = '';
       resultsEl.innerHTML = '';
-      openConversation(c.id);
+      openConversation(data.id);
+    }
+
+    // ============ Groups ============
+    $('newGroup').onclick = async () => {
+      const name = el('input', 'm-input');
+      name.placeholder = 'Group name';
+      name.maxLength = 40;
+      const picker = createPicker([]);
+      const body = el('div');
+      body.append(name, picker.el);
+
+      const result = await modal({
+        title: 'New group',
+        message: 'Name your group and add some people.',
+        confirmText: 'Create',
+        body,
+        validate: () => !name.value.trim() ? 'Give the group a name'
+                      : !picker.getIds().length ? 'Add at least one person' : null,
+        getValue: () => ({ name: name.value.trim(), memberIds: picker.getIds() })
+      });
+      if (!result) return;
+
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result)
+      });
+      const data = await res.json();
+      if (!res.ok) return toast(data.error || 'Could not create group');
+
+      upsertConv(data);
+      openConversation(data.id);
+    };
+
+    async function addPeople(c) {
+      const picker = createPicker(c.members.map((m) => m.id));
+      const ids = await modal({
+        title: 'Add people',
+        message: `Add people to ${c.title}.`,
+        confirmText: 'Add',
+        body: picker.el,
+        validate: () => !picker.getIds().length ? 'Pick at least one person' : null,
+        getValue: () => picker.getIds()
+      });
+      if (!ids) return;
+
+      const res = await fetch(`/api/groups/${c.id}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: ids })
+      });
+      const data = await res.json();
+      if (!res.ok) return toast(data.error || 'Could not add people');
+      upsertConv(data);
+      toast('People added');
     }
 
     loadConversations();

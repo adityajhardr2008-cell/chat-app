@@ -10,12 +10,21 @@ db.exec(`
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- type is 'direct' or 'group'. direct_key (like "3:7") stops duplicate direct chats.
   CREATE TABLE IF NOT EXISTS conversations (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user1_id   INTEGER NOT NULL REFERENCES users(id),
-    user2_id   INTEGER NOT NULL REFERENCES users(id),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user1_id, user2_id)
+    type       TEXT NOT NULL DEFAULT 'direct',
+    name       TEXT,
+    direct_key TEXT UNIQUE,
+    created_by INTEGER REFERENCES users(id),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS conversation_members (
+    conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    joined_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (conversation_id, user_id)
   );
 
   CREATE TABLE IF NOT EXISTS messages (

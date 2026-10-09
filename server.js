@@ -32,25 +32,39 @@ const searchUsers = db.prepare(
   'SELECT id, username FROM users WHERE username LIKE ? AND id != ? ORDER BY username LIMIT 10'
 );
 
-const findConversation = db.prepare('SELECT * FROM conversations WHERE user1_id = ? AND user2_id = ?');
-const createConversation = db.prepare('INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)');
-const getConversationById = db.prepare('SELECT * FROM conversations WHERE id = ?');
-const getMyConversations = db.prepare(`
-  SELECT c.id, u.id AS other_id, u.username AS other_username
-  FROM conversations c
-  JOIN users u ON u.id = CASE WHEN c.user1_id = ? THEN c.user2_id ELSE c.user1_id END
-  WHERE c.user1_id = ? OR c.user2_id = ?
-  ORDER BY c.id DESC
+// Conversations + members
+const getConv = db.prepare('SELECT * FROM conversations WHERE id = ?');
+const findDirect = db.prepare('SELECT * FROM conversations WHERE direct_key = ?');
+const createConv = db.prepare(
+  'INSERT INTO conversations (type, name, direct_key, created_by) VALUES (?, ?, ?, ?)'
+);
+const addMember = db.prepare(
+  'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id) VALUES (?, ?)'
+);
+const getMembers = db.prepare(`
+  SELECT u.id, u.username
+  FROM conversation_members cm JOIN users u ON u.id = cm.user_id
+  WHERE cm.conversation_id = ? ORDER BY u.username
+`);
+const memberCheck = db.prepare(
+  'SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ?'
+);
+const myConvIds = db.prepare(
+  'SELECT conversation_id AS id FROM conversation_members WHERE user_id = ?'
+);
+const lastActivity = db.prepare(`
+  SELECT COALESCE(
+    (SELECT MAX(created_at) FROM messages WHERE conversation_id = ?),
+    (SELECT created_at FROM conversations WHERE id = ?)
+  ) AS t
 `);
 
-// Columns we send to browsers. Deleted messages get their text blanked HERE,
-// so the original text can never reach any client.
+// Messages. Deleted messages get their text blanked HERE, so it never reaches a client.
 const MSG_COLS = `
   m.id, m.conversation_id, m.user_id,
   CASE WHEN m.deleted = 1 THEN '' ELSE m.text END AS text,
   m.deleted, m.created_at, m.edited_at, u.username
 `;
-
 const insertMessage = db.prepare(
   'INSERT INTO messages (conversation_id, user_id, text) VALUES (?, ?, ?)'
 );
@@ -79,11 +93,40 @@ function requireLogin(req, res, next) {
   next();
 }
 
-function isMember(conv, userId) {
-  return !!conv && (conv.user1_id === userId || conv.user2_id === userId);
+function isMember(convId, userId) {
+  return !!memberCheck.get(convId, userId);
 }
 
-// userId -> number of open sockets (tabs) for that user
+// What the browser needs to know about a conversation, from one user's point of view
+function convView(conv, userId) {
+  const members = getMembers.all(conv.id);
+  const last_at = lastActivity.get(conv.id, conv.id).t;
+
+  if (conv.type === 'direct') {
+    const other = members.find((m) => m.id !== userId) || members[0];
+    return {
+      id: conv.id, type: 'direct', title: other.username,
+      other_id: other.id, members, last_at
+    };
+  }
+  return {
+    id: conv.id, type: 'group', title: conv.name,
+    members, created_by: conv.created_by, last_at
+  };
+}
+
+// Put every open tab of these users into the conversation's room
+function joinRooms(userIds, convId) {
+  userIds.forEach((id) => io.in(`user:${id}`).socketsJoin(`conv:${convId}`));
+}
+
+// Clean a list of user ids: numbers only, no duplicates, must exist, not in `exclude`
+function cleanIds(list, exclude = []) {
+  const ids = [...new Set((Array.isArray(list) ? list : []).map(Number))];
+  return ids.filter((id) => id && !exclude.includes(id) && findUserById.get(id));
+}
+
+// userId -> number of open tabs
 const onlineCounts = new Map();
 
 // ---------- Auth routes ----------
@@ -134,43 +177,93 @@ app.get('/api/users', requireLogin, (req, res) => {
 
 app.get('/api/conversations', requireLogin, (req, res) => {
   const me = req.session.userId;
-  res.json(getMyConversations.all(me, me, me));
+  res.json(myConvIds.all(me).map((c) => convView(getConv.get(c.id), me)));
 });
 
+// Start (or open existing) direct conversation
 app.post('/api/conversations', requireLogin, (req, res) => {
   const me = req.session.userId;
   const otherId = Number(req.body.userId);
 
   if (!otherId || otherId === me) return res.status(400).json({ error: 'Invalid user' });
-  const other = findUserById.get(otherId);
-  if (!other) return res.status(404).json({ error: 'User not found' });
+  if (!findUserById.get(otherId)) return res.status(404).json({ error: 'User not found' });
 
   const [a, b] = me < otherId ? [me, otherId] : [otherId, me];
-  let conv = findConversation.get(a, b);
+  const key = `${a}:${b}`;
+  let conv = findDirect.get(key);
 
   if (!conv) {
-    const result = createConversation.run(a, b);
-    conv = getConversationById.get(result.lastInsertRowid);
+    const id = db.transaction(() => {
+      const r = createConv.run('direct', null, key, me);
+      const convId = Number(r.lastInsertRowid);
+      addMember.run(convId, me);
+      addMember.run(convId, otherId);
+      return convId;
+    })();
 
-    io.in(`user:${me}`).socketsJoin(`conv:${conv.id}`);
-    io.in(`user:${otherId}`).socketsJoin(`conv:${conv.id}`);
-
-    io.to(`user:${otherId}`).emit('new conversation', {
-      id: conv.id,
-      other_id: me,
-      other_username: req.session.username
-    });
+    conv = getConv.get(id);
+    joinRooms([me, otherId], conv.id);
+    io.to(`user:${otherId}`).emit('new conversation', convView(conv, otherId));
   }
 
-  res.json({ id: conv.id, other_id: other.id, other_username: other.username });
+  res.json(convView(conv, me));
+});
+
+// Create a group
+app.post('/api/groups', requireLogin, (req, res) => {
+  const me = req.session.userId;
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+
+  if (!name || name.length > 40) {
+    return res.status(400).json({ error: 'Group name must be 1-40 characters' });
+  }
+  const ids = cleanIds(req.body.memberIds, [me]);
+  if (ids.length === 0) return res.status(400).json({ error: 'Add at least one other person' });
+  if (ids.length > 50) return res.status(400).json({ error: 'Too many members (max 50)' });
+
+  const convId = db.transaction(() => {
+    const r = createConv.run('group', name, null, me);
+    const id = Number(r.lastInsertRowid);
+    [me, ...ids].forEach((u) => addMember.run(id, u));
+    return id;
+  })();
+
+  const conv = getConv.get(convId);
+  joinRooms([me, ...ids], convId);
+  ids.forEach((id) => io.to(`user:${id}`).emit('new conversation', convView(conv, id)));
+  res.json(convView(conv, me));
+});
+
+// Add people to an existing group (any member can)
+app.post('/api/groups/:id/members', requireLogin, (req, res) => {
+  const me = req.session.userId;
+  const conv = getConv.get(Number(req.params.id));
+
+  if (!conv || conv.type !== 'group' || !isMember(conv.id, me)) {
+    return res.status(403).json({ error: 'Not your group' });
+  }
+
+  const existing = getMembers.all(conv.id).map((m) => m.id);
+  const ids = cleanIds(req.body.userIds, existing);
+  if (ids.length === 0) return res.status(400).json({ error: 'No new people to add' });
+  if (existing.length + ids.length > 50) {
+    return res.status(400).json({ error: 'Too many members (max 50)' });
+  }
+
+  ids.forEach((u) => addMember.run(conv.id, u));
+  joinRooms(ids, conv.id);
+
+  ids.forEach((id) => io.to(`user:${id}`).emit('new conversation', convView(conv, id)));
+  io.to(`conv:${conv.id}`).emit('conversation updated', convView(conv, me));
+  res.json(convView(conv, me));
 });
 
 app.get('/api/conversations/:id/messages', requireLogin, (req, res) => {
-  const conv = getConversationById.get(Number(req.params.id));
-  if (!isMember(conv, req.session.userId)) {
+  const convId = Number(req.params.id);
+  if (!convId || !isMember(convId, req.session.userId)) {
     return res.status(403).json({ error: 'Not your conversation' });
   }
-  res.json(getConversationMessages.all(conv.id));
+  res.json(getConversationMessages.all(convId));
 });
 
 // ---------- Pages ----------
@@ -195,38 +288,36 @@ io.on('connection', (socket) => {
   console.log(`${username} connected`);
 
   socket.join(`user:${userId}`);
-  getMyConversations.all(userId, userId, userId).forEach((c) => {
-    socket.join(`conv:${c.id}`);
-  });
+  myConvIds.all(userId).forEach((c) => socket.join(`conv:${c.id}`));
 
-  // --- Presence: count this tab; announce only if user just came online ---
+  // Presence
   const count = (onlineCounts.get(userId) || 0) + 1;
   onlineCounts.set(userId, count);
   if (count === 1) io.emit('presence', { userId, online: true });
 
   socket.emit('me', { id: userId, username });
-  socket.emit('online users', [...onlineCounts.keys()]); // who is online right now
+  socket.emit('online users', [...onlineCounts.keys()]);
 
-  // --- Send a message ---
+  // Send a message
   socket.on('chat message', (data) => {
-    const conv = getConversationById.get(Number(data && data.conversationId));
-    if (!isMember(conv, userId)) return;
+    const convId = Number(data && data.conversationId);
+    if (!convId || !isMember(convId, userId)) return;
 
     const text = typeof data.text === 'string' ? data.text.trim() : '';
     if (!text || text.length > 2000) return;
 
-    const result = insertMessage.run(conv.id, userId, text);
-    io.to(`conv:${conv.id}`).emit('chat message', getMessage.get(result.lastInsertRowid));
+    const result = insertMessage.run(convId, userId, text);
+    io.to(`conv:${convId}`).emit('chat message', getMessage.get(result.lastInsertRowid));
   });
 
-  // --- Typing: forward to the OTHER people in the room, nothing is saved ---
+  // Typing (forwarded to everyone else in the room, nothing saved)
   socket.on('typing', (data) => {
-    const conv = getConversationById.get(Number(data && data.conversationId));
-    if (!isMember(conv, userId)) return;
-    socket.to(`conv:${conv.id}`).emit('typing', { conversationId: conv.id, username });
+    const convId = Number(data && data.conversationId);
+    if (!convId || !isMember(convId, userId)) return;
+    socket.to(`conv:${convId}`).emit('typing', { conversationId: convId, username });
   });
 
-  // --- Edit (only your own, not deleted ones) ---
+  // Edit (own messages only)
   socket.on('edit message', (data) => {
     const msg = getRawMessage.get(Number(data && data.id));
     if (!msg || msg.user_id !== userId || msg.deleted) return;
@@ -238,7 +329,7 @@ io.on('connection', (socket) => {
     io.to(`conv:${msg.conversation_id}`).emit('message updated', getMessage.get(msg.id));
   });
 
-  // --- Delete (only your own) ---
+  // Delete (own messages only)
   socket.on('delete message', (data) => {
     const msg = getRawMessage.get(Number(data && data.id));
     if (!msg || msg.user_id !== userId) return;
@@ -249,7 +340,6 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log(`${username} disconnected`);
-
     const left = (onlineCounts.get(userId) || 1) - 1;
     if (left <= 0) {
       onlineCounts.delete(userId);
