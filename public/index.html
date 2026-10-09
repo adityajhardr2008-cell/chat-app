@@ -13,21 +13,37 @@
     #search { padding: 8px; width: 100%; }
     #sidebar ul { list-style: none; padding: 0; margin: 5px 0; }
     #sidebar li { padding: 10px; cursor: pointer; border-radius: 6px;
-                  display: flex; justify-content: space-between; }
+                  display: flex; justify-content: space-between; align-items: center; }
     #sidebar li:hover { background: #eee; }
     #sidebar li.active { background: #dbeafe; }
     #results li { background: #fffbe6; }
     .badge { background: #e11d48; color: white; border-radius: 10px;
              padding: 0 7px; font-size: 12px; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+           background: #bbb; margin-right: 8px; }
+    .dot.online { background: #22c55e; }
     h4 { margin: 15px 0 5px; color: #666; }
 
-    #main { flex: 1; display: flex; flex-direction: column; padding: 10px; }
-    #chatTitle { font-weight: bold; padding: 10px; border-bottom: 1px solid #ccc; }
+    #main { flex: 1; display: flex; flex-direction: column; padding: 10px; min-width: 0; }
+    #chatHeader { padding: 10px; border-bottom: 1px solid #ccc; }
+    #titleName { font-weight: bold; }
+    #titleStatus { font-size: 12px; color: #888; margin-left: 8px; }
+    #titleStatus.online { color: #16a34a; }
     #messages { flex: 1; list-style: none; padding: 10px; margin: 0; overflow-y: auto; }
     #messages li { margin-bottom: 8px; padding: 8px 12px; border-radius: 10px;
-                   max-width: 70%; background: #f1f1f1; clear: both; }
+                   max-width: 70%; background: #f1f1f1; width: fit-content; }
     #messages li.mine { background: #dcf8c6; margin-left: auto; }
-    #messages .sender { font-size: 12px; color: #666; }
+    #messages li.deleted { background: #fafafa; color: #999; font-style: italic;
+                           border: 1px dashed #ddd; }
+    .sender { font-size: 12px; color: #666; }
+    .body { word-wrap: break-word; }
+    .meta { font-size: 11px; color: #888; margin-top: 3px; display: flex; gap: 8px;
+            justify-content: flex-end; }
+    .actions { display: none; gap: 6px; }
+    .actions a { color: #2563eb; cursor: pointer; }
+    #messages li:hover .actions { display: flex; }
+
+    #typing { height: 20px; font-size: 13px; color: #666; font-style: italic; padding-left: 10px; }
     #inputBar { display: flex; gap: 6px; }
     #msg { flex: 1; padding: 10px; }
     #send { padding: 10px 16px; }
@@ -49,8 +65,12 @@
     </div>
 
     <div id="main">
-      <div id="chatTitle">Select a chat or search for a user</div>
+      <div id="chatHeader">
+        <span id="titleName">Select a chat or search for a user</span>
+        <span id="titleStatus"></span>
+      </div>
       <ul id="messages"></ul>
+      <div id="typing"></div>
       <div id="inputBar">
         <input id="msg" placeholder="Type a message..." autocomplete="off" disabled />
         <button id="send" disabled>Send</button>
@@ -65,14 +85,28 @@
     const messagesEl = document.getElementById('messages');
     const msgInput = document.getElementById('msg');
     const sendBtn = document.getElementById('send');
-    const chatTitle = document.getElementById('chatTitle');
+    const titleName = document.getElementById('titleName');
+    const titleStatus = document.getElementById('titleStatus');
+    const typingEl = document.getElementById('typing');
     const convListEl = document.getElementById('convList');
     const resultsEl = document.getElementById('results');
     const searchInput = document.getElementById('search');
 
     let myName = null;
     let currentConvId = null;
-    const conversations = new Map(); // id -> { id, other_id, other_username, unread }
+    const conversations = new Map();  // id -> { id, other_id, other_username, unread }
+    const onlineUsers = new Set();    // ids of users who are online right now
+
+    // ---------- Time (stored as UTC in the database, shown in IST) ----------
+    function formatTime(sqlDate) {
+      const d = new Date(sqlDate.replace(' ', 'T') + 'Z'); // mark it as UTC
+      const tz = { timeZone: 'Asia/Kolkata' };
+      const time = d.toLocaleTimeString('en-IN', { ...tz, hour: '2-digit', minute: '2-digit', hour12: true });
+      const dayFmt = { ...tz, day: '2-digit', month: 'short' };
+      const day = d.toLocaleDateString('en-IN', dayFmt);
+      const today = new Date().toLocaleDateString('en-IN', dayFmt);
+      return day === today ? time : `${day}, ${time}`;
+    }
 
     // ---------- Connection ----------
     socket.on('connect_error', () => { window.location.href = '/login.html'; });
@@ -86,6 +120,30 @@
       await fetch('/logout', { method: 'POST' });
       window.location.href = '/login.html';
     };
+
+    // ---------- Online status ----------
+    socket.on('online users', (ids) => {
+      onlineUsers.clear();
+      ids.forEach((id) => onlineUsers.add(id));
+      renderConvList();
+      updateHeader();
+    });
+
+    socket.on('presence', ({ userId, online }) => {
+      if (online) onlineUsers.add(userId);
+      else onlineUsers.delete(userId);
+      renderConvList();
+      updateHeader();
+    });
+
+    function updateHeader() {
+      const c = conversations.get(currentConvId);
+      if (!c) return;
+      const online = onlineUsers.has(c.other_id);
+      titleName.textContent = c.other_username;
+      titleStatus.textContent = online ? 'online' : 'offline';
+      titleStatus.className = online ? 'online' : '';
+    }
 
     // ---------- Sidebar: conversation list ----------
     async function loadConversations() {
@@ -102,9 +160,14 @@
         const li = document.createElement('li');
         if (c.id === currentConvId) li.classList.add('active');
 
+        const left = document.createElement('span');
+        const dot = document.createElement('span');
+        dot.className = 'dot' + (onlineUsers.has(c.other_id) ? ' online' : '');
         const name = document.createElement('span');
         name.textContent = c.other_username;
-        li.appendChild(name);
+        left.appendChild(dot);
+        left.appendChild(name);
+        li.appendChild(left);
 
         if (c.unread > 0) {
           const badge = document.createElement('span');
@@ -118,7 +181,6 @@
       }
     }
 
-    // The other person started a chat with us
     socket.on('new conversation', (c) => {
       conversations.set(c.id, { ...c, unread: 0 });
       renderConvList();
@@ -129,13 +191,14 @@
       currentConvId = id;
       const c = conversations.get(id);
       c.unread = 0;
-      chatTitle.textContent = c.other_username;
       messagesEl.innerHTML = '';
+      typingEl.textContent = '';
+      updateHeader();
       renderConvList();
 
       const res = await fetch(`/api/conversations/${id}/messages`);
       const rows = await res.json();
-      if (currentConvId !== id) return; // user already switched to another chat
+      if (currentConvId !== id) return;
 
       rows.forEach(addMessage);
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -145,21 +208,74 @@
       msgInput.focus();
     }
 
-    function addMessage(m) {
+    // ---------- Drawing a message ----------
+    function buildMessage(m) {
       const li = document.createElement('li');
-      if (m.username === myName) li.classList.add('mine');
+      li.dataset.id = m.id;
+      const mine = m.username === myName;
+      if (mine) li.classList.add('mine');
+
+      if (m.deleted) {
+        li.classList.add('deleted');
+        li.textContent = 'This message was deleted';
+        return li;
+      }
 
       const sender = document.createElement('div');
       sender.className = 'sender';
       sender.textContent = m.username;
 
-      const text = document.createElement('div');
-      text.textContent = m.text;
+      const body = document.createElement('div');
+      body.className = 'body';
+      body.textContent = m.text;
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      if (mine) {
+        const actions = document.createElement('span');
+        actions.className = 'actions';
+
+        const edit = document.createElement('a');
+        edit.textContent = 'Edit';
+        edit.onclick = () => {
+          const newText = prompt('Edit message:', m.text);
+          if (newText && newText.trim() && newText.trim() !== m.text) {
+            socket.emit('edit message', { id: m.id, text: newText });
+          }
+        };
+
+        const del = document.createElement('a');
+        del.textContent = 'Delete';
+        del.onclick = () => {
+          if (confirm('Delete this message?')) socket.emit('delete message', { id: m.id });
+        };
+
+        actions.appendChild(edit);
+        actions.appendChild(del);
+        meta.appendChild(actions);
+      }
+
+      const time = document.createElement('span');
+      time.textContent = (m.edited_at ? 'edited · ' : '') + formatTime(m.created_at);
+      meta.appendChild(time);
 
       li.appendChild(sender);
-      li.appendChild(text);
-      messagesEl.appendChild(li);
+      li.appendChild(body);
+      li.appendChild(meta);
+      return li;
     }
+
+    function addMessage(m) {
+      messagesEl.appendChild(buildMessage(m));
+    }
+
+    // An existing message was edited or deleted -> redraw just that one
+    socket.on('message updated', (m) => {
+      if (m.conversation_id !== currentConvId) return;
+      const old = messagesEl.querySelector(`[data-id="${m.id}"]`);
+      if (old) old.replaceWith(buildMessage(m));
+    });
 
     // ---------- Sending / receiving ----------
     function send() {
@@ -174,12 +290,33 @@
 
     socket.on('chat message', (m) => {
       if (m.conversation_id === currentConvId) {
+        typingEl.textContent = '';
         addMessage(m);
         messagesEl.scrollTop = messagesEl.scrollHeight;
       } else {
         const c = conversations.get(m.conversation_id);
         if (c) { c.unread++; renderConvList(); }
       }
+    });
+
+    // ---------- Typing indicator ----------
+    let lastTypingSent = 0;
+    let typingTimer;
+
+    msgInput.addEventListener('input', () => {
+      if (currentConvId === null) return;
+      const now = Date.now();
+      if (now - lastTypingSent > 2000) { // at most once every 2 seconds
+        socket.emit('typing', { conversationId: currentConvId });
+        lastTypingSent = now;
+      }
+    });
+
+    socket.on('typing', ({ conversationId, username }) => {
+      if (conversationId !== currentConvId) return;
+      typingEl.textContent = `${username} is typing...`;
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => { typingEl.textContent = ''; }, 3000);
     });
 
     // ---------- Search users ----------
@@ -206,7 +343,7 @@
           li.textContent = 'No users found';
           resultsEl.appendChild(li);
         }
-      }, 250); // wait 250ms after typing stops, so we don't search on every keystroke
+      }, 250);
     });
 
     async function startChat(userId) {

@@ -43,22 +43,35 @@ const getMyConversations = db.prepare(`
   ORDER BY c.id DESC
 `);
 
+// Columns we send to browsers. Deleted messages get their text blanked HERE,
+// so the original text can never reach any client.
+const MSG_COLS = `
+  m.id, m.conversation_id, m.user_id,
+  CASE WHEN m.deleted = 1 THEN '' ELSE m.text END AS text,
+  m.deleted, m.created_at, m.edited_at, u.username
+`;
+
 const insertMessage = db.prepare(
   'INSERT INTO messages (conversation_id, user_id, text) VALUES (?, ?, ?)'
 );
+const getRawMessage = db.prepare('SELECT * FROM messages WHERE id = ?');
 const getMessage = db.prepare(`
-  SELECT m.id, m.conversation_id, m.text, m.created_at, u.username
+  SELECT ${MSG_COLS}
   FROM messages m JOIN users u ON u.id = m.user_id
   WHERE m.id = ?
 `);
 const getConversationMessages = db.prepare(`
   SELECT * FROM (
-    SELECT m.id, m.conversation_id, m.text, m.created_at, u.username
+    SELECT ${MSG_COLS}
     FROM messages m JOIN users u ON u.id = m.user_id
     WHERE m.conversation_id = ?
     ORDER BY m.id DESC LIMIT 50
   ) ORDER BY id ASC
 `);
+const updateMessageText = db.prepare(
+  'UPDATE messages SET text = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ?'
+);
+const softDeleteMessage = db.prepare('UPDATE messages SET deleted = 1 WHERE id = ?');
 
 // ---------- Helpers ----------
 function requireLogin(req, res, next) {
@@ -69,6 +82,9 @@ function requireLogin(req, res, next) {
 function isMember(conv, userId) {
   return !!conv && (conv.user1_id === userId || conv.user2_id === userId);
 }
+
+// userId -> number of open sockets (tabs) for that user
+const onlineCounts = new Map();
 
 // ---------- Auth routes ----------
 app.post('/register', (req, res) => {
@@ -110,20 +126,17 @@ app.post('/logout', (req, res) => {
 });
 
 // ---------- Chat API ----------
-// Search users by name (excludes yourself)
 app.get('/api/users', requireLogin, (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.json([]);
   res.json(searchUsers.all(`%${q}%`, req.session.userId));
 });
 
-// List my conversations
 app.get('/api/conversations', requireLogin, (req, res) => {
   const me = req.session.userId;
   res.json(getMyConversations.all(me, me, me));
 });
 
-// Start (or open existing) conversation with another user
 app.post('/api/conversations', requireLogin, (req, res) => {
   const me = req.session.userId;
   const otherId = Number(req.body.userId);
@@ -139,11 +152,9 @@ app.post('/api/conversations', requireLogin, (req, res) => {
     const result = createConversation.run(a, b);
     conv = getConversationById.get(result.lastInsertRowid);
 
-    // Put both users' open sockets into the new room right away
     io.in(`user:${me}`).socketsJoin(`conv:${conv.id}`);
     io.in(`user:${otherId}`).socketsJoin(`conv:${conv.id}`);
 
-    // Tell the other user so it appears in their sidebar
     io.to(`user:${otherId}`).emit('new conversation', {
       id: conv.id,
       other_id: me,
@@ -154,7 +165,6 @@ app.post('/api/conversations', requireLogin, (req, res) => {
   res.json({ id: conv.id, other_id: other.id, other_username: other.username });
 });
 
-// Load messages of one conversation (members only)
 app.get('/api/conversations/:id/messages', requireLogin, (req, res) => {
   const conv = getConversationById.get(Number(req.params.id));
   if (!isMember(conv, req.session.userId)) {
@@ -184,17 +194,23 @@ io.on('connection', (socket) => {
   const { userId, username } = socket.request.session;
   console.log(`${username} connected`);
 
-  // Personal room (for notifying this user) + one room per conversation
   socket.join(`user:${userId}`);
   getMyConversations.all(userId, userId, userId).forEach((c) => {
     socket.join(`conv:${c.id}`);
   });
 
-  socket.emit('me', { id: userId, username });
+  // --- Presence: count this tab; announce only if user just came online ---
+  const count = (onlineCounts.get(userId) || 0) + 1;
+  onlineCounts.set(userId, count);
+  if (count === 1) io.emit('presence', { userId, online: true });
 
+  socket.emit('me', { id: userId, username });
+  socket.emit('online users', [...onlineCounts.keys()]); // who is online right now
+
+  // --- Send a message ---
   socket.on('chat message', (data) => {
     const conv = getConversationById.get(Number(data && data.conversationId));
-    if (!isMember(conv, userId)) return; // not your conversation
+    if (!isMember(conv, userId)) return;
 
     const text = typeof data.text === 'string' ? data.text.trim() : '';
     if (!text || text.length > 2000) return;
@@ -203,8 +219,44 @@ io.on('connection', (socket) => {
     io.to(`conv:${conv.id}`).emit('chat message', getMessage.get(result.lastInsertRowid));
   });
 
+  // --- Typing: forward to the OTHER people in the room, nothing is saved ---
+  socket.on('typing', (data) => {
+    const conv = getConversationById.get(Number(data && data.conversationId));
+    if (!isMember(conv, userId)) return;
+    socket.to(`conv:${conv.id}`).emit('typing', { conversationId: conv.id, username });
+  });
+
+  // --- Edit (only your own, not deleted ones) ---
+  socket.on('edit message', (data) => {
+    const msg = getRawMessage.get(Number(data && data.id));
+    if (!msg || msg.user_id !== userId || msg.deleted) return;
+
+    const text = typeof data.text === 'string' ? data.text.trim() : '';
+    if (!text || text.length > 2000) return;
+
+    updateMessageText.run(text, msg.id);
+    io.to(`conv:${msg.conversation_id}`).emit('message updated', getMessage.get(msg.id));
+  });
+
+  // --- Delete (only your own) ---
+  socket.on('delete message', (data) => {
+    const msg = getRawMessage.get(Number(data && data.id));
+    if (!msg || msg.user_id !== userId) return;
+
+    softDeleteMessage.run(msg.id);
+    io.to(`conv:${msg.conversation_id}`).emit('message updated', getMessage.get(msg.id));
+  });
+
   socket.on('disconnect', () => {
     console.log(`${username} disconnected`);
+
+    const left = (onlineCounts.get(userId) || 1) - 1;
+    if (left <= 0) {
+      onlineCounts.delete(userId);
+      io.emit('presence', { userId, online: false });
+    } else {
+      onlineCounts.set(userId, left);
+    }
   });
 });
 

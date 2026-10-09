@@ -23,7 +23,9 @@ db.exec(`
     conversation_id INTEGER NOT NULL REFERENCES conversations(id),
     user_id         INTEGER NOT NULL REFERENCES users(id),
     text            TEXT NOT NULL,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    edited_at       DATETIME,
+    deleted         INTEGER NOT NULL DEFAULT 0
   );
 `);
 
