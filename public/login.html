@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+  <style>
+    body { font-family: sans-serif; max-width: 320px; margin: 80px auto; }
+    input, button { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+    #error { color: red; min-height: 20px; }
+    a { color: blue; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2 id="title">Login</h2>
+  <input id="username" placeholder="Username" />
+  <input id="password" type="password" placeholder="Password" />
+  <button id="submit">Login</button>
+  <div id="error"></div>
+  <p><span id="switchText">No account?</span> <a id="switch">Register</a></p>
+
+  <script>
+    let mode = 'login'; // or 'register'
+
+    const title = document.getElementById('title');
+    const submitBtn = document.getElementById('submit');
+    const switchText = document.getElementById('switchText');
+    const switchLink = document.getElementById('switch');
+    const errorBox = document.getElementById('error');
+
+    switchLink.onclick = () => {
+      mode = mode === 'login' ? 'register' : 'login';
+      title.textContent = mode === 'login' ? 'Login' : 'Register';
+      submitBtn.textContent = title.textContent;
+      switchText.textContent = mode === 'login' ? 'No account?' : 'Have an account?';
+      switchLink.textContent = mode === 'login' ? 'Register' : 'Login';
+      errorBox.textContent = '';
+    };
+
+    async function submit() {
+      const res = await fetch('/' + mode, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value.trim(),
+          password: document.getElementById('password').value
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        errorBox.textContent = data.error;
+      }
+    }
+
+    submitBtn.onclick = submit;
+    document.getElementById('password').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+    });
+  </script>
+</body>
+</html>

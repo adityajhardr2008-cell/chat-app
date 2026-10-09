@@ -4,37 +4,49 @@
   <title>Chat</title>
   <style>
     body { font-family: sans-serif; max-width: 500px; margin: 20px auto; }
+    #top { display: flex; justify-content: space-between; align-items: center; }
     #messages { list-style: none; padding: 0; height: 350px; overflow-y: auto;
                 border: 1px solid #ccc; margin-bottom: 10px; }
     #messages li { padding: 6px 10px; }
     #messages li:nth-child(odd) { background: #f4f4f4; }
     input { padding: 8px; }
-    #msg { width: 60%; }
+    #msg { width: 70%; }
   </style>
 </head>
 <body>
-  <h2>Chat Room</h2>
+  <div id="top">
+    <h2>Chat Room</h2>
+    <div>
+      <span id="who"></span>
+      <button id="logout">Logout</button>
+    </div>
+  </div>
+
   <ul id="messages"></ul>
 
-  <input id="name" placeholder="Your name" />
   <input id="msg" placeholder="Type a message..." autocomplete="off" />
   <button id="send">Send</button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io(); // connect to the server
+    const socket = io();
 
     const messages = document.getElementById('messages');
-    const nameInput = document.getElementById('name');
     const msgInput = document.getElementById('msg');
+
+    // Not logged in (or session expired) -> go to login page
+    socket.on('connect_error', () => {
+      window.location.href = '/login.html';
+    });
+
+    socket.on('me', (data) => {
+      document.getElementById('who').textContent = 'Logged in as ' + data.username;
+    });
 
     function send() {
       const text = msgInput.value.trim();
       if (!text) return;
-      socket.emit('chat message', {
-        name: nameInput.value || 'Anonymous',
-        text: text
-      });
+      socket.emit('chat message', { text });
       msgInput.value = '';
     }
 
@@ -43,20 +55,22 @@
       if (e.key === 'Enter') send();
     });
 
-    // When the server broadcasts a message, show it
+    document.getElementById('logout').onclick = async () => {
+      await fetch('/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    };
+
     function addMessage(data) {
       const li = document.createElement('li');
-      li.textContent = `${data.name}: ${data.text}`;
+      li.textContent = `${data.username}: ${data.text}`;
       messages.appendChild(li);
     }
 
-    // Saved messages sent when we first connect
     socket.on('history', (rows) => {
       rows.forEach(addMessage);
       messages.scrollTop = messages.scrollHeight;
     });
 
-    // Live new messages
     socket.on('chat message', (data) => {
       addMessage(data);
       messages.scrollTop = messages.scrollHeight;
