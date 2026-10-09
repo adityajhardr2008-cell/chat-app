@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat</title>
+  <style>
+    body { font-family: sans-serif; max-width: 500px; margin: 20px auto; }
+    #messages { list-style: none; padding: 0; height: 350px; overflow-y: auto;
+                border: 1px solid #ccc; margin-bottom: 10px; }
+    #messages li { padding: 6px 10px; }
+    #messages li:nth-child(odd) { background: #f4f4f4; }
+    input { padding: 8px; }
+    #msg { width: 60%; }
+  </style>
+</head>
+<body>
+  <h2>Chat Room</h2>
+  <ul id="messages"></ul>
+
+  <input id="name" placeholder="Your name" />
+  <input id="msg" placeholder="Type a message..." autocomplete="off" />
+  <button id="send">Send</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io(); // connect to the server
+
+    const messages = document.getElementById('messages');
+    const nameInput = document.getElementById('name');
+    const msgInput = document.getElementById('msg');
+
+    function send() {
+      const text = msgInput.value.trim();
+      if (!text) return;
+      socket.emit('chat message', {
+        name: nameInput.value || 'Anonymous',
+        text: text
+      });
+      msgInput.value = '';
+    }
+
+    document.getElementById('send').onclick = send;
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') send();
+    });
+
+    // When the server broadcasts a message, show it
+    socket.on('chat message', (data) => {
+      const li = document.createElement('li');
+      li.textContent = `${data.name}: ${data.text}`; // textContent = safe from HTML injection
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight;
+    });
+  </script>
+</body>
+</html>
