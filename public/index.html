@@ -146,6 +146,9 @@
               overflow-wrap: anywhere; white-space: pre-wrap; }
     .mine .bubble { background: var(--ink); color: #fff; border-bottom-right-radius: 7px; }
     .theirs .bubble { background: var(--beige); border-bottom-left-radius: 7px; }
+    .theirs .bubble.ai { background: #eef1fb; border: 1px solid #d9def2; }
+    .sender.ai { cursor: default; }
+    .sender.ai:hover { color: var(--muted); text-decoration: none; }
     .bubble.deleted { background: transparent !important; color: var(--muted) !important; font-style: italic;
                       border: 1px dashed #cfcfc8; }
 
@@ -356,7 +359,7 @@
       <div id="requestBar"></div>
 
       <div id="inputBar">
-        <input id="msg" placeholder="Message" autocomplete="off" disabled />
+        <input id="msg" placeholder="Message (type @ai to ask Gemini)" autocomplete="off" disabled />
         <button id="send" disabled aria-label="Send">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
@@ -1011,9 +1014,10 @@
       const row = el('div', 'row ' + (mine ? 'mine' : 'theirs') + (animate ? ' enter' : ''));
       row.dataset.id = m.id;
 
-      if (c && c.type === 'group' && !mine) {
-        const s = el('div', 'sender', m.username);
-        s.onclick = () => openProfile(m.user_id);
+      const isAI = m.kind === 'ai';
+      if (isAI || (c && c.type === 'group' && !mine)) {
+        const s = el('div', 'sender' + (isAI ? ' ai' : ''), isAI ? '\u2728 ' + m.username : m.username);
+        if (!isAI) s.onclick = () => openProfile(m.user_id);
         row.appendChild(s);
       }
 
@@ -1023,7 +1027,7 @@
         return row;
       }
 
-      row.appendChild(el('div', 'bubble', m.text));
+      row.appendChild(el('div', 'bubble' + (isAI ? ' ai' : ''), m.text));
 
       const meta = el('div', 'meta');
       if (mine) {

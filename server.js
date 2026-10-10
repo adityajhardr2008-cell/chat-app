@@ -7,6 +7,7 @@ const SqliteStore = require('better-sqlite3-session-store')(session);
 const bcrypt = require('bcryptjs');
 const { Server } = require('socket.io');
 const db = require('./db');
+const { askGemini } = require('./ai');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +17,10 @@ const io = new Server(server);
 const PENDING_LIMIT = 3;                 // messages a stranger can send before you accept
 const NOTE_MS = 24 * 60 * 60 * 1000;     // notes disappear after 24 hours
 const GROUP_MAX = 50;
+const AI_CONTEXT_MESSAGES = 10;          // recent chat messages sent to Gemini for context (0 = send none)
+const AI_PER_MINUTE = 10;                // how many times one person can use @ai per minute
+const BOT_USERNAME = 'gemini-bot';       // has a hyphen, so no real user can register it
+const BOT_NAME = 'Gemini';
 
 // ---------- Sessions ----------
 const sessionMiddleware = session({
@@ -44,7 +49,7 @@ const createUser = db.prepare('INSERT INTO users (username, password_hash) VALUE
 const getAvatar = db.prepare('SELECT avatar FROM users WHERE id = ?');
 const searchUsers = db.prepare(`
   SELECT id FROM users
-  WHERE (username LIKE ? OR display_name LIKE ?) AND id != ?
+  WHERE (username LIKE ? OR display_name LIKE ?) AND id != ? AND username != '${BOT_USERNAME}'
     AND id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id = ?)
   ORDER BY username LIMIT 10
 `);
@@ -120,7 +125,7 @@ const lastActivity = db.prepare(`
 `);
 const unreadCount = db.prepare(`
   SELECT COUNT(*) AS n FROM messages
-  WHERE conversation_id = ? AND user_id != ? AND deleted = 0 AND kind = 'user'
+  WHERE conversation_id = ? AND user_id != ? AND deleted = 0 AND kind IN ('user', 'ai')
     AND id > COALESCE((SELECT last_read_id FROM conversation_members
                        WHERE conversation_id = ? AND user_id = ?), 0)
 `);
@@ -146,6 +151,9 @@ const insertMessage = db.prepare(
 const insertSystem = db.prepare(
   "INSERT INTO messages (conversation_id, user_id, text, kind) VALUES (?, ?, ?, 'system')"
 );
+const insertAI = db.prepare(
+  "INSERT INTO messages (conversation_id, user_id, text, kind) VALUES (?, ?, ?, 'ai')"
+);
 const getRawMessage = db.prepare('SELECT * FROM messages WHERE id = ?');
 const getMessage = db.prepare(`
   SELECT ${MSG_COLS} FROM messages m JOIN users u ON u.id = m.user_id WHERE m.id = ?
@@ -163,6 +171,17 @@ const softDeleteMessage = db.prepare('UPDATE messages SET deleted = 1 WHERE id =
 const sentCount = db.prepare(
   "SELECT COUNT(*) AS n FROM messages WHERE conversation_id = ? AND user_id = ? AND kind = 'user'"
 );
+
+// ----- Gemini's account -----
+// Gemini's replies are saved as messages from this account. Nobody can log in as it
+// (its password hash is not a valid bcrypt hash) and it can't be messaged or added to groups.
+let bot = findUserByName.get(BOT_USERNAME);
+if (!bot) {
+  createUser.run(BOT_USERNAME, '!');
+  bot = findUserByName.get(BOT_USERNAME);
+}
+updateProfile.run(BOT_NAME, 'AI assistant. Type @ai in any chat.', bot.id);
+const BOT_ID = bot.id;
 
 // =====================================================================
 // Helpers
@@ -300,7 +319,7 @@ function postSystem(convId, actorId, text) {
 
 function cleanIds(list, exclude = []) {
   const ids = [...new Set((Array.isArray(list) ? list : []).map(Number))];
-  return ids.filter((id) => id && !exclude.includes(id) && getUser.get(id));
+  return ids.filter((id) => id && id !== BOT_ID && !exclude.includes(id) && getUser.get(id));
 }
 
 // Tell everyone who can see this user that their profile changed
@@ -395,7 +414,7 @@ app.post('/login', (req, res) => {
   const { username, password } = req.body;
   const user = findUserByName.get(typeof username === 'string' ? username : '');
 
-  if (!user || !bcrypt.compareSync(typeof password === 'string' ? password : '', user.password_hash)) {
+  if (!user || user.id === BOT_ID || !bcrypt.compareSync(typeof password === 'string' ? password : '', user.password_hash)) {
     return res.status(401).json({ error: 'Wrong username or password' });
   }
   startSession(req, res, user);
@@ -514,7 +533,7 @@ app.get('/api/friends', requireLogin, (req, res) => {
 app.post('/api/friends/request', requireLogin, (req, res) => {
   const me = req.session.userId;
   const other = Number(req.body.userId);
-  if (!other || other === me || !getUser.get(other)) return res.status(400).json({ error: 'Invalid user' });
+  if (!other || other === me || other === BOT_ID || !getUser.get(other)) return res.status(400).json({ error: 'Invalid user' });
   if (isBlockedEither(me, other)) return res.status(403).json({ error: "You can't send a request to this user" });
 
   const f = friendship(me, other);
@@ -622,7 +641,7 @@ app.post('/api/conversations', requireLogin, (req, res) => {
   const me = req.session.userId;
   const otherId = Number(req.body.userId);
 
-  if (!otherId || otherId === me) return res.status(400).json({ error: 'Invalid user' });
+  if (!otherId || otherId === me || otherId === BOT_ID) return res.status(400).json({ error: 'Invalid user' });
   if (!getUser.get(otherId)) return res.status(404).json({ error: 'User not found' });
   if (isBlockedEither(me, otherId)) {
     return res.status(403).json({
@@ -850,6 +869,61 @@ io.use((socket, next) => {
 
 const notice = (socket, msg) => socket.emit('notice', msg);
 
+// ----- @ai -----
+const AI_MENTION = '(^|\\s)@ai(?=$|[\\s,:;!?])'; // "@ai" as its own word, so "me@ai.com" doesn't count
+
+// Returns the question with "@ai" removed, or null if the message doesn't mention @ai
+function aiQuestion(body) {
+  if (!new RegExp(AI_MENTION, 'i').test(body)) return null;
+  return body
+    .replace(new RegExp(AI_MENTION, 'gi'), '$1')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,:;\s]+/, '')
+    .trim();
+}
+
+const aiCalls = new Map(); // userId -> times they used @ai in the last minute
+function aiAllowed(userId) {
+  const now = Date.now();
+  const recent = (aiCalls.get(userId) || []).filter((t) => now - t < 60 * 1000);
+  const ok = recent.length < AI_PER_MINUTE;
+  if (ok) recent.push(now);
+  aiCalls.set(userId, recent);
+  return ok;
+}
+
+// Ask Gemini, then post the answer in the same place the question went
+async function answerWithAI({ convId, room, userId, question, afterId }) {
+  let reply;
+
+  if (!question) {
+    reply = 'Hi! Ask me something, like \u201c@ai what is a good name for a dog?\u201d';
+  } else {
+    const history = AI_CONTEXT_MESSAGES > 0
+      ? getConversationMessages.all(convId)
+          .filter((m) => m.id < afterId && m.kind !== 'system' && !m.deleted && m.text)
+          .slice(-AI_CONTEXT_MESSAGES)
+          .map((m) => ({ name: m.username, text: m.text }))
+      : [];
+
+    // Show "Gemini is typing" while we wait (the browser hides it after 3s, so refresh it)
+    const showTyping = () => io.to(room).emit('typing', { conversationId: convId, username: BOT_NAME });
+    showTyping();
+    const typingTimer = setInterval(showTyping, 2000);
+    try {
+      reply = await askGemini({ question, asker: displayName(getUser.get(userId)), history });
+    } catch (err) {
+      console.error('AI error:', err);
+      reply = 'Sorry, I could not get an answer right now.';
+    } finally {
+      clearInterval(typingTimer);
+    }
+  }
+
+  const r = insertAI.run(convId, BOT_ID, reply);
+  io.to(room).emit('chat message', getMessage.get(r.lastInsertRowid));
+}
+
 io.on('connection', (socket) => {
   const userId = socket.request.session.userId;
   console.log(`${socket.request.session.username} connected`);
@@ -901,6 +975,17 @@ io.on('connection', (socket) => {
 
     const result = insertMessage.run(convId, userId, body);
     io.to(room).emit('chat message', getMessage.get(result.lastInsertRowid));
+
+    // "@ai ..." anywhere in the message: Gemini answers in the same chat
+    const question = aiQuestion(body);
+    if (question !== null) {
+      if (!aiAllowed(userId)) {
+        notice(socket, `Slow down: you can use @ai ${AI_PER_MINUTE} times a minute`);
+      } else {
+        answerWithAI({ convId, room, userId, question, afterId: Number(result.lastInsertRowid) })
+          .catch((err) => console.error('AI error:', err));
+      }
+    }
   });
 
   // ----- Typing -----
