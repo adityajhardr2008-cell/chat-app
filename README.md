@@ -6,6 +6,7 @@ A real-time, web-based chat app built for the KamandPrompt "First Commit" hackat
 
 - **Auth:** register, login, logout, persistent sessions (bcrypt-hashed passwords, 7-day cookie)
 - **One-to-one chat** and **group chats**, delivered in real time over WebSockets (Socket.IO)
+- **AI integrated platform:** use @ai followed by your prompt to access the AI (used Google Gemini API)
 - **Message requests:** messages from non-friends arrive as requests you can accept, delete, or block
 - **Group invites:** you join a group only after accepting the invite
 - **Friends:** send/accept friend requests; friends chat freely
